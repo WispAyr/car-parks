@@ -1,0 +1,2 @@
+ok i want to connect to a mariadb that is running on 192.168.1.151 user root password RBTeeyKM142! inside there is a database nocobase with a table anpr_detections this contains a table with anpr detections and blobs with images. First task is i would like these displayed onb a page
+you will need to connect to the database and work out the structure, i cannot change the database stucutre easily

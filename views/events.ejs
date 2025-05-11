@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Events Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(120deg, #f5f5f5 60%, #e0e7ff 100%);
+        }
+        .header {
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            padding: 32px 0 16px 0;
+            margin-bottom: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        .nav {
+            text-align: center;
+            margin: 18px 0 24px 0;
+        }
+        .nav a {
+            display: inline-block;
+            margin: 0 10px;
+            padding: 8px 18px;
+            border-radius: 6px;
+            background: #e0e7ff;
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .nav a.active, .nav a:hover {
+            background: #6366f1;
+            color: #fff;
+        }
+        .filter {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .events-table {
+            width: 96vw;
+            max-width: 1200px;
+            margin: 0 auto 32px auto;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .events-table th, .events-table td {
+            padding: 12px 10px;
+            text-align: left;
+        }
+        .events-table th {
+            background: #e0e7ff;
+            color: #333;
+            font-weight: 600;
+        }
+        .events-table tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+        .flag {
+            color: #fff;
+            background: #f59e42;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+        @media (max-width: 700px) {
+            .events-table, .events-table th, .events-table td {
+                font-size: 13px;
+            }
+        }
+        .timezone-btn {
+            margin-left: 16px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #6366f1;
+            background: #fff;
+            color: #6366f1;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .timezone-btn:hover {
+            background: #6366f1;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Parking Events Dashboard</h1>
+    </div>
+    <div class="nav">
+        <a href="/" class="active">Parking Events</a>
+        <a href="/realtime">Real-time Detections</a>
+    </div>
+    <div class="filter">
+        <label for="siteSelect"><strong>Car Park:</strong></label>
+        <select id="siteSelect" data-carparks='<%- JSON.stringify(carparks) %>'>
+            <option value="">All</option>
+            <% carparks.forEach(cp => { %>
+                <option value="<%= cp.siteId %>"><%= cp.name %></option>
+            <% }) %>
+        </select>
+        <button id="timezoneToggle" class="timezone-btn" onclick="toggleTimezone()">
+            Switch to GMT
+        </button>
+    </div>
+    <table class="events-table">
+        <thead>
+            <tr>
+                <th>Car Park</th>
+                <th>VRM</th>
+                <th>Entry Time</th>
+                <th>Exit Time</th>
+                <th>Duration (min)</th>
+                <th>Through Traffic</th>
+            </tr>
+        </thead>
+        <tbody id="eventsBody">
+            <tr><td colspan="6" style="text-align:center; color:#888;">Loading...</td></tr>
+        </tbody>
+    </table>
+    <script src="/js/utils.js"></script>
+    <script>
+        const siteSelect = document.getElementById('siteSelect');
+        const eventsBody = document.getElementById('eventsBody');
+        const timezoneToggle = document.getElementById('timezoneToggle');
+        // Build carparkNames from data attribute
+        const carparks = JSON.parse(siteSelect.getAttribute('data-carparks'));
+        const carparkNames = {};
+        carparks.forEach(cp => { carparkNames[cp.siteId] = cp.name; });
+
+        // Store the current events data
+        let currentEvents = [];
+
+        async function loadEvents() {
+            eventsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Loading...</td></tr>';
+            let url = '/api/parking-events';
+            if (siteSelect.value) url += '?siteId=' + encodeURIComponent(siteSelect.value);
+            const res = await fetch(url);
+            const data = await res.json();
+            currentEvents = data;
+            renderEvents();
+        }
+
+        function renderEvents() {
+            if (!Array.isArray(currentEvents) || currentEvents.length === 0) {
+                eventsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">No events found.</td></tr>';
+                return;
+            }
+            eventsBody.innerHTML = currentEvents.map(ev => `
+                <tr>
+                    <td>
+                        ${carparkNames[ev.siteId] || ev.siteId}
+                    </td>
+                    <td>${ev.VRM}</td>
+                    <td>${ev.entryTime ? formatDateTime(ev.entryTime) : ''}</td>
+                    <td>${ev.exitTime ? formatDateTime(ev.exitTime) : '<span style="color:#f59e42;">Still Parked</span>'}</td>
+                    <td>${formatDuration(ev.durationMinutes)}</td>
+                    <td>${ev.throughTraffic ? '<span class="flag">Yes</span>' : ''}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Make refreshTimes available globally
+        window.refreshTimes = function() {
+            renderEvents();
+            timezoneToggle.textContent = `Switch to ${useBST ? 'GMT' : 'BST'}`;
+        };
+
+        siteSelect.onchange = loadEvents;
+        loadEvents();
+    </script>
+</body>
+</html> 
