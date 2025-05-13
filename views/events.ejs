@@ -105,7 +105,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>Parking Events Dashboard</h1>
+        <h1>Parking Events</h1>
     </div>
     <div class="nav">
         <a href="/" class="active">Parking Events</a>
@@ -123,21 +123,37 @@
             Switch to GMT
         </button>
     </div>
-    <table class="events-table">
-        <thead>
-            <tr>
-                <th>Car Park</th>
-                <th>VRM</th>
-                <th>Entry Time</th>
-                <th>Exit Time</th>
-                <th>Duration (min)</th>
-                <th>Through Traffic</th>
-            </tr>
-        </thead>
-        <tbody id="eventsBody">
-            <tr><td colspan="6" style="text-align:center; color:#888;">Loading...</td></tr>
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>VRM</th>
+                    <th>Entry Time</th>
+                    <th>Exit Time</th>
+                    <th>Duration</th>
+                    <th>Through Traffic</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% events.forEach(event => { %>
+                    <tr>
+                        <td><%= event.VRM %></td>
+                        <td><%= new Date(event.entryTime).toLocaleString() %></td>
+                        <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
+                        <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
+                        <td><%= event.throughTraffic ? 'Yes' : 'No' %></td>
+                        <td>
+                            <a href="/image/<%= event.entryImage %>/1" target="_blank" class="btn btn-sm btn-primary">Entry Image</a>
+                            <% if (event.exitImage) { %>
+                                <a href="/image/<%= event.exitImage %>/2" target="_blank" class="btn btn-sm btn-info">Exit Image</a>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
     <script src="/js/utils.js"></script>
     <script>
         const siteSelect = document.getElementById('siteSelect');

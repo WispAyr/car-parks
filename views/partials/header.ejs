@@ -1,0 +1,50 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">ANPR System</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Events</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/realtime">Real-time</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/camera-status">Camera Status</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin">Admin</a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <select id="carParkSelector" class="form-select car-park-selector me-2" onchange="handleCarParkChange(this.value)">
+                    <option value="">All Car Parks</option>
+                    <% if (typeof carparks !== 'undefined') { %>
+                        <% carparks.forEach(carpark => { %>
+                            <option value="<%= carpark.siteId %>" <%= selectedCarPark === carpark.siteId ? 'selected' : '' %>>
+                                <%= carpark.name %>
+                            </option>
+                        <% }); %>
+                    <% } %>
+                </select>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    function handleCarParkChange(siteId) {
+        const currentPath = window.location.pathname;
+        const queryParams = new URLSearchParams(window.location.search);
+        if (siteId) {
+            queryParams.set('siteId', siteId);
+        } else {
+            queryParams.delete('siteId');
+        }
+        // Preserve other query parameters
+        const newUrl = `${currentPath}?${queryParams.toString()}`;
+        window.location.href = newUrl;
+    }
+</script> 

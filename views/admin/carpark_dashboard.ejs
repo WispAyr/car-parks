@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= carpark.name %> - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css" rel="stylesheet">
+    <style>
+        .stat-card {
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .stat-card p {
+            margin: 5px 0 0;
+            color: #666;
+        }
+        .image-preview {
+            width: 100px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .image-preview:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><%= carpark.name %> Dashboard</h1>
+            <a href="/admin/carparks" class="btn btn-secondary">Back to Car Parks</a>
+        </div>
+
+        <!-- Current Status -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stat-card bg-primary text-white">
+                    <h3><%= currentOccupancy %></h3>
+                    <p>Current Vehicles</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-success text-white">
+                    <h3><%= todayStats.totalVehicles %></h3>
+                    <p>Today's Vehicles</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-info text-white">
+                    <h3><%= todayStats.throughTraffic %></h3>
+                    <p>Through Traffic Today</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-warning text-white">
+                    <h3><%= Math.round(todayStats.avgDuration) %> min</h3>
+                    <p>Average Stay Today</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Today's Hourly Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Average Stay by Day of Week</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="dailyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Vehicles -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Currently Parked Vehicles</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>VRM</th>
+                                <th>Entry Time</th>
+                                <th>Duration</th>
+                                <th>Entry Image</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% currentVehicles.forEach(vehicle => { %>
+                                <tr>
+                                    <td><%= vehicle.VRM %></td>
+                                    <td><%= new Date(vehicle.entryTime).toLocaleString() %></td>
+                                    <td><%= Math.round((new Date() - new Date(vehicle.entryTime)) / 60000) %> min</td>
+                                    <td>
+                                        <% if (vehicle.entryImage) { %>
+                                            <img src="/image/<%= vehicle.entryImage %>/1" class="image-preview" 
+                                                 onclick="showImage(this.src)" alt="Entry">
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Events</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>VRM</th>
+                                <th>Entry Time</th>
+                                <th>Exit Time</th>
+                                <th>Duration</th>
+                                <th>Entry Image</th>
+                                <th>Exit Image</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% recentEvents.forEach(event => { %>
+                                <tr>
+                                    <td><%= event.VRM %></td>
+                                    <td><%= new Date(event.entryTime).toLocaleString() %></td>
+                                    <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                    <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
+                                    <td>
+                                        <% if (event.entryImage) { %>
+                                            <img src="/image/<%= event.entryImage %>/1" class="image-preview" 
+                                                 onclick="showImage(this.src)" alt="Entry">
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <% if (event.exitImage) { %>
+                                            <img src="/image/<%= event.exitImage %>/2" class="image-preview" 
+                                                 onclick="showImage(this.src)" alt="Exit">
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Statistics -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Monthly Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Total Vehicles</th>
+                                <th>Through Traffic</th>
+                                <th>Average Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% monthlyStats.forEach(stat => { %>
+                                <tr>
+                                    <td><%= stat.month %></td>
+                                    <td><%= stat.totalVehicles %></td>
+                                    <td><%= stat.throughTraffic %></td>
+                                    <td><%= Math.round(stat.avgDuration) %> min</td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" class="img-fluid" src="" alt="Preview">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script>
+        // Initialize charts
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: <%= JSON.stringify(hourlyDistribution.map(h => h.hour + ':00')) %>,
+                datasets: [{
+                    label: 'Vehicles',
+                    data: <%= JSON.stringify(hourlyDistribution.map(h => h.count)) %>,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+        new Chart(dailyCtx, {
+            type: 'bar',
+            data: {
+                labels: <%= JSON.stringify(dailyStats.map(d => d.day)) %>,
+                datasets: [{
+                    label: 'Average Duration (minutes)',
+                    data: <%= JSON.stringify(dailyStats.map(d => Math.round(d.avgDuration))) %>,
+                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Image modal
+        function showImage(src) {
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+            document.getElementById('modalImage').src = src;
+            modal.show();
+        }
+
+        // Auto-refresh every 5 minutes
+        setTimeout(() => {
+            window.location.reload();
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html> 

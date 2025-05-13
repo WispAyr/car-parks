@@ -2,83 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Camera Status & Metrics</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Status Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', Arial, sans-serif; background: #f5f5f5; margin: 0; }
-        .container { max-width: 1200px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
-        h1 { font-size: 2.2rem; margin-bottom: 24px; text-align: center; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
-        .cam-box { background: #f8fafc; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 22px 18px 18px 18px; position: relative; }
-        .cam-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
-        .status-dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
-        .status-green { background: #22c55e; }
-        .status-yellow { background: #facc15; }
-        .status-red { background: #ef4444; }
-        .metrics { margin-top: 10px; font-size: 1.05rem; }
-        .metrics span { display: inline-block; min-width: 120px; }
-        .interval { color: #6366f1; font-weight: 500; }
-        .thresholds { font-size: 0.95em; color: #888; margin-top: 6px; }
-        @media (max-width: 700px) { .container { padding: 8px; } }
+        .camera-card {
+            margin-bottom: 1rem;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-active {
+            background-color: #28a745;
+        }
+        .status-inactive {
+            background-color: #dc3545;
+        }
+        .metrics {
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        .metrics span {
+            display: inline-block;
+            min-width: 120px;
+        }
+        .interval {
+            color: #6366f1;
+            font-weight: 500;
+        }
+        .thresholds {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 6px;
+        }
+        .sparkline {
+            margin-top: 10px;
+            height: 28px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Camera Status & Metrics</h1>
-        <div class="grid">
-            <% cameraStats.forEach(cam => { %>
-                <div class="cam-box">
-                    <div class="cam-title">
-                        <span class="status-dot status-<%= cam.status %>"></span>
-                        <%= cam.name || cam.cameraId %>
-                    </div>
-                    <div><strong>Last Detection:</strong> <span class="js-datetime"><%= cam.lastDetection || 'Never' %></span></div>
-                    <div class="metrics">
-                        <span><strong>Last Hour:</strong> <%= cam.lastHour %></span>
-                        <span><strong>Last Day:</strong> <%= cam.lastDay %></span>
-                        <span><strong>Last 30d:</strong> <%= cam.lastMonth %></span>
-                    </div>
-                    <div class="metrics">
-                        <span><strong>Day 24h:</strong> <%= cam.day24h %></span>
-                        <span><strong>Night 24h:</strong> <%= cam.night24h %></span>
-                    </div>
-                    <div class="metrics">
-                        <span><strong>Day 30d:</strong> <%= cam.day30d %></span>
-                        <span><strong>Night 30d:</strong> <%= cam.night30d %></span>
-                    </div>
-                    <div class="metrics">
-                        <span class="interval"><strong>Avg Interval:</strong> <%= cam.avgInterval ? cam.avgInterval.toFixed(1) + ' min' : 'N/A' %></span>
-                    </div>
-                    <div class="thresholds">
-                        <span>Green ≤ <%= Math.round(cam.greenLimit) %> min</span> | 
-                        <span>Yellow ≤ <%= Math.round(cam.yellowLimit) %> min</span>
-                    </div>
-                    <div style="margin-top:10px;">
-                        <canvas class="sparkline" width="120" height="28" data-points="<%= cam.sparkline.join(',') %>"></canvas>
-                        <div style="font-size:0.9em;color:#888;text-align:right;">last 24h</div>
+    <div class="container mt-4">
+        <h1 class="mb-4">Camera Status Dashboard</h1>
+        
+        <div class="row">
+            <% cameras.forEach(camera => { %>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card camera-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <span class="status-indicator status-<%= camera.status %>"></span>
+                                <%= camera.name %>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                <strong>Last Detection:</strong> <%= camera.lastDetection ? new Date(camera.lastDetection).toLocaleString() : 'Never' %><br>
+                                <strong>Detection Count:</strong> <%= camera.detectionCount %><br>
+                                <strong>Direction:</strong> <%= camera.direction %><br>
+                                <strong>Entry Trigger:</strong> <%= camera.isEntryTrigger ? 'Yes' : 'No' %><br>
+                                <strong>Exit Trigger:</strong> <%= camera.isExitTrigger ? 'Yes' : 'No' %><br>
+                                <strong>Entry Direction:</strong> <%= camera.entryDirection %><br>
+                                <strong>Car Park ID:</strong> <%= camera.carParkId || 'Not assigned' %>
+                            </p>
+                            
+                            <div class="metrics">
+                                <span><strong>Last Hour:</strong> <%= camera.lastHour %></span>
+                                <span><strong>Last Day:</strong> <%= camera.lastDay %></span>
+                                <span><strong>Last 30d:</strong> <%= camera.lastMonth %></span>
+                            </div>
+                            
+                            <div class="metrics">
+                                <span><strong>Day 24h:</strong> <%= camera.day24h %></span>
+                                <span><strong>Night 24h:</strong> <%= camera.night24h %></span>
+                            </div>
+                            
+                            <div class="metrics">
+                                <span><strong>Day 30d:</strong> <%= camera.day30d %></span>
+                                <span><strong>Night 30d:</strong> <%= camera.night30d %></span>
+                            </div>
+                            
+                            <div class="metrics">
+                                <span class="interval"><strong>Avg Interval:</strong> <%= camera.avgInterval ? camera.avgInterval.toFixed(1) + ' min' : 'N/A' %></span>
+                            </div>
+                            
+                            <div class="thresholds">
+                                <span>Green ≤ <%= Math.round(camera.greenLimit) %> min</span> | 
+                                <span>Yellow ≤ <%= Math.round(camera.yellowLimit) %> min</span>
+                            </div>
+                            
+                            <div class="sparkline">
+                                <canvas width="120" height="28" data-points="<%= camera.sparkline.join(',') %>"></canvas>
+                                <div style="font-size:0.9em;color:#888;text-align:right;">last 24h</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            <% }) %>
+            <% }); %>
         </div>
     </div>
-    <script src="/js/utils.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.js-datetime').forEach(el => {
-                if (el.textContent !== 'Never') {
-                    el.textContent = formatDateTime(el.textContent);
-                }
-            });
             // Draw sparklines
-            document.querySelectorAll('.sparkline').forEach(canvas => {
+            document.querySelectorAll('.sparkline canvas').forEach(canvas => {
                 const ctx = canvas.getContext('2d');
                 const points = canvas.dataset.points.split(',').map(Number);
                 const w = canvas.width, h = canvas.height;
                 const max = Math.max(...points, 1);
+                
                 ctx.clearRect(0, 0, w, h);
                 ctx.strokeStyle = '#6366f1';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
+                
                 points.forEach((v, i) => {
                     const x = i * (w / (points.length - 1));
                     const y = h - (v / max) * (h - 4) - 2;
@@ -86,7 +128,8 @@
                     else ctx.lineTo(x, y);
                 });
                 ctx.stroke();
-                // Optionally, draw dots
+                
+                // Draw dots
                 ctx.fillStyle = '#6366f1';
                 points.forEach((v, i) => {
                     const x = i * (w / (points.length - 1));

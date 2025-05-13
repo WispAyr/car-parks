@@ -26,11 +26,12 @@
     </style>
     <script>
         function showEditForm(btn) {
-            document.getElementById('editCameraId').value = btn.getAttribute('data-cameraid');
-            document.getElementById('editSiteId').value = btn.getAttribute('data-siteid');
-            document.getElementById('editEntryDirections').value = btn.getAttribute('data-entrydirections');
-            document.getElementById('editExitDirections').value = btn.getAttribute('data-exitdirections');
+            document.getElementById('editOriginalName').value = btn.getAttribute('data-name');
             document.getElementById('editName').value = btn.getAttribute('data-name');
+            document.getElementById('editCarParkId').value = btn.getAttribute('data-carparkid');
+            document.getElementById('editIsEntryTrigger').checked = btn.getAttribute('data-isentrytrigger') === 'true';
+            document.getElementById('editIsExitTrigger').checked = btn.getAttribute('data-isexittrigger') === 'true';
+            document.getElementById('editDirection').value = btn.getAttribute('data-direction');
             document.getElementById('editForm').style.display = 'block';
             window.scrollTo(0,0);
         }
@@ -75,29 +76,23 @@
             <button type="submit">Add Camera</button>
         </form>
         <form class="edit-form" id="editForm" method="POST" action="/admin/cameras/edit" style="display:none;">
-            <input type="hidden" name="cameraId" id="editCameraId">
+            <input type="hidden" name="originalName" id="editOriginalName">
+            <label>Name: <input type="text" name="name" id="editName" required></label>
             <label>Car Park:
-                <select name="siteId" id="editSiteId" required>
+                <select name="carParkId" id="editCarParkId" required>
                     <% carparks.forEach(cp => { %>
                         <option value="<%= cp.siteId %>"><%= cp.name %></option>
                     <% }) %>
                 </select>
             </label>
-            <label>Entry Directions:
-                <select name="entryDirections" id="editEntryDirections" required>
-                    <option value="towards">towards</option>
-                    <option value="away">away</option>
-                    <option value="both">both</option>
+            <label>Entry Trigger: <input type="checkbox" name="isEntryTrigger" id="editIsEntryTrigger"></label>
+            <label>Exit Trigger: <input type="checkbox" name="isExitTrigger" id="editIsExitTrigger"></label>
+            <label>Direction:
+                <select name="direction" id="editDirection" required>
+                    <option value="in">in</option>
+                    <option value="out">out</option>
                 </select>
             </label>
-            <label>Exit Directions:
-                <select name="exitDirections" id="editExitDirections" required>
-                    <option value="towards">towards</option>
-                    <option value="away">away</option>
-                    <option value="both">both</option>
-                </select>
-            </label>
-            <label>Name: <input type="text" name="name" id="editName"></label>
             <button type="submit">Save Changes</button>
             <button type="button" onclick="hideEditForm()" style="background:#aaa;">Cancel</button>
         </form>
@@ -114,7 +109,7 @@
                         <td><%= cam.exitDirections %></td>
                         <td><%= cam.name %></td>
                         <td class="actions">
-                            <button type="button" onclick="showEditForm(this)" data-cameraid="<%= cam.cameraId %>" data-siteid="<%= cam.siteId %>" data-entrydirections="<%= cam.entryDirections %>" data-exitdirections="<%= cam.exitDirections %>" data-name="<%= cam.name ? cam.name.replace(/"/g, '&quot;') : '' %>">Edit</button>
+                            <button type="button" onclick="showEditForm(this)" data-cameraid="<%= cam.cameraId %>" data-siteid="<%= cam.siteId %>" data-entrydirections="<%= cam.entryDirections %>" data-exitdirections="<%= cam.exitDirections %>" data-name="<%= cam.name ? cam.name.replace(/"/g, '&quot;') : '' %>" data-carparkid="<%= cam.siteId %>" data-isentrytrigger="<%= cam.isEntryTrigger %>" data-isexittrigger="<%= cam.isExitTrigger %>" data-direction="<%= cam.direction %>">Edit</button>
                             <form class="inline" method="POST" action="/admin/cameras/delete" onsubmit="return confirm('Delete this camera?');">
                                 <input type="hidden" name="cameraId" value="<%= cam.cameraId %>">
                                 <button type="submit" style="background:#e11d48;">Delete</button>

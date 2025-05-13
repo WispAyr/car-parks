@@ -136,54 +136,70 @@
 </head>
 <body>
     <div class="header">
-        <h1>ANPR Detections</h1>
+        <h1>Real-time ANPR Detections</h1>
         <button id="timezoneToggle" class="timezone-btn" onclick="toggleTimezone()">
             Switch to GMT
         </button>
     </div>
-    <div class="detections-grid">
-        <% detections.forEach(detection => { %>
-            <div class="detection-card">
-                <div class="image-container">
-                    <img src="/image/<%= detection.id %>/1" alt="ANPR Detection 1" class="detection-image" loading="lazy"
-                         onerror="this.onerror=null; this.src='/placeholder.jpg';" onclick="showModal('/image/<%= detection.id %>/1')">
-                    <img src="/image/<%= detection.id %>/2" alt="ANPR Detection 2" class="detection-image" loading="lazy"
-                         onerror="this.onerror=null; this.src='/placeholder.jpg';" onclick="showModal('/image/<%= detection.id %>/2')">
-                </div>
-                <div class="detection-info">
-                    <p><strong>ID:</strong> <%= detection.id %></p>
-                    <% Object.keys(detection).forEach(key => { %>
-                        <% if (key !== 'id' && key !== 'image' && key !== 'image1' && key !== 'image2' &&
-                               key !== 'updatedAt' && key !== 'createdById' && key !== 'updatedById' &&
-                               key !== 'CarParkID' && key !== 'CameraIDLinked' && key !== 'instanceID') { %>
-                            <% if (key === 'timestamp' || key === 'createdAt') { %>
-                                <p><strong><%= key %>:</strong> <span class="js-datetime"><%= detection[key] %></span></p>
-                            <% } else { %>
-                                <p><strong><%= key %>:</strong> <%= detection[key] %></p>
-                            <% } %>
-                        <% } %>
-                    <% }) %>
-                </div>
-            </div>
-        <% }) %>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>VRM</th>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Direction</th>
+                    <th>Confidence</th>
+                    <th>Tag</th>
+                    <th>Tag Confidence</th>
+                    <th>Country</th>
+                    <th>Camera</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% detections.forEach(detection => { %>
+                    <tr>
+                        <td><%= detection.id %></td>
+                        <td><%= detection.VRM %></td>
+                        <td><%= detection.timestamp %></td>
+                        <td><%= detection.type %></td>
+                        <td><%= detection.direction %></td>
+                        <td><%= detection.confidence %></td>
+                        <td><%= detection.tag %></td>
+                        <td><%= detection.tagConfidence %></td>
+                        <td><%= detection.country %></td>
+                        <td><%= detection.cameraID %></td>
+                        <td>
+                            <a href="/image/<%= detection.id %>/1" target="_blank" class="btn btn-sm btn-primary">View Image</a>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
     </div>
-    <div class="pagination">
-        <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
             <% if (page > 1) { %>
-                <a href="/realtime?page=<%= page - 1 %>">&laquo; Prev</a>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= page - 1 %>&siteId=<%= selectedCarPark %>">Previous</a>
+                </li>
             <% } %>
-            <% for (let i = 1; i <= totalPages; i++) { %>
-                <% if (i === page) { %>
-                    <span class="active"><%= i %></span>
-                <% } else { %>
-                    <a href="/realtime?page=<%= i %>"><%= i %></a>
-                <% } %>
+            
+            <% for(let i = 1; i <= totalPages; i++) { %>
+                <li class="page-item <%= i === page ? 'active' : '' %>">
+                    <a class="page-link" href="?page=<%= i %>&siteId=<%= selectedCarPark %>"><%= i %></a>
+                </li>
             <% } %>
+            
             <% if (page < totalPages) { %>
-                <a href="/realtime?page=<%= page + 1 %>">Next &raquo;</a>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= page + 1 %>&siteId=<%= selectedCarPark %>">Next</a>
+                </li>
             <% } %>
-        <% } %>
-    </div>
+        </ul>
+    </nav>
     <!-- Modal for full-size image -->
     <div id="imageModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
         <span id="closeModal" style="position:absolute; top:32px; right:48px; font-size:2.5rem; color:#fff; cursor:pointer; font-weight:700;">&times;</span>

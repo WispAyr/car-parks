@@ -13,9 +13,14 @@
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>Manage Cameras</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCameraModal">
-                <i class="bi bi-plus-lg"></i> Add Camera
-            </button>
+            <div>
+                <button class="btn btn-success me-2" onclick="window.location.href='/admin/migrate-cameras-from-detections'">
+                    <i class="bi bi-arrow-repeat"></i> Sync from Detections
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCameraModal">
+                    <i class="bi bi-plus-lg"></i> Add Camera
+                </button>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -24,8 +29,9 @@
                     <tr>
                         <th>Name</th>
                         <th>Car Park</th>
-                        <th>Entry Directions</th>
-                        <th>Exit Directions</th>
+                        <th>Entry Trigger</th>
+                        <th>Exit Trigger</th>
+                        <th>Direction</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -33,19 +39,10 @@
                     <% cameras.forEach(camera => { %>
                         <tr>
                             <td><%= camera.name %></td>
-                            <td><%= camera.carParkName || 'Unassigned' %></td>
-                            <td>
-                                <% JSON.parse(camera.entryDirections).forEach((dir, index) => { %>
-                                    <span class="badge bg-primary"><%= dir %></span>
-                                    <%= index < JSON.parse(camera.entryDirections).length - 1 ? ' ' : '' %>
-                                <% }); %>
-                            </td>
-                            <td>
-                                <% JSON.parse(camera.exitDirections).forEach((dir, index) => { %>
-                                    <span class="badge bg-secondary"><%= dir %></span>
-                                    <%= index < JSON.parse(camera.exitDirections).length - 1 ? ' ' : '' %>
-                                <% }); %>
-                            </td>
+                            <td><%= camera.carparkName || 'Unassigned' %></td>
+                            <td><%= camera.isEntryTrigger ? 'Yes' : 'No' %></td>
+                            <td><%= camera.isExitTrigger ? 'Yes' : 'No' %></td>
+                            <td><%= camera.direction %></td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary edit-camera" 
                                         data-camera='<%= JSON.stringify(camera) %>'>
@@ -81,7 +78,7 @@
                             <label class="form-label">Car Park</label>
                             <select class="form-select" name="carParkId">
                                 <option value="">Select Car Park</option>
-                                <% carParks.forEach(carPark => { %>
+                                <% carparks.forEach(carPark => { %>
                                     <option value="<%= carPark.id %>"><%= carPark.name %></option>
                                 <% }); %>
                             </select>
@@ -133,7 +130,7 @@
                             <label class="form-label">Car Park</label>
                             <select class="form-select" name="carParkId">
                                 <option value="">Select Car Park</option>
-                                <% carParks.forEach(carPark => { %>
+                                <% carparks.forEach(carPark => { %>
                                     <option value="<%= carPark.id %>"><%= carPark.name %></option>
                                 <% }); %>
                             </select>
@@ -141,12 +138,12 @@
                         <div class="mb-3">
                             <label class="form-label">Camera Configuration</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isEntryTrigger" id="isEntryTrigger">
-                                <label class="form-check-label" for="isEntryTrigger">Entry Trigger</label>
+                                <input class="form-check-input" type="checkbox" name="isEntryTrigger" id="editIsEntryTrigger">
+                                <label class="form-check-label" for="editIsEntryTrigger">Entry Trigger</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isExitTrigger" id="isExitTrigger">
-                                <label class="form-check-label" for="isExitTrigger">Exit Trigger</label>
+                                <input class="form-check-input" type="checkbox" name="isExitTrigger" id="editIsExitTrigger">
+                                <label class="form-check-label" for="editIsExitTrigger">Exit Trigger</label>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -183,7 +180,7 @@
                 };
 
                 try {
-                    const response = await fetch('/admin/api/cameras', {
+                    const response = await fetch('/admin/cameras/add', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
@@ -209,19 +206,8 @@
                     form.querySelector('[name="id"]').value = camera.id;
                     form.querySelector('[name="name"]').value = camera.name;
                     form.querySelector('[name="carParkId"]').value = camera.carParkId || '';
-                    
-                    // Reset checkboxes
-                    form.querySelectorAll('[name="isEntryTrigger"]').forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-                    form.querySelectorAll('[name="isExitTrigger"]').forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-                    
-                    // Set checkboxes based on stored values
                     form.querySelector('[name="isEntryTrigger"]').checked = camera.isEntryTrigger;
                     form.querySelector('[name="isExitTrigger"]').checked = camera.isExitTrigger;
-                    
                     form.querySelector('[name="direction"]').value = camera.direction;
                     
                     new bootstrap.Modal(document.getElementById('editCameraModal')).show();
@@ -234,6 +220,7 @@
                 const formData = new FormData(form);
                 
                 const data = {
+                    id: formData.get('id'),
                     name: formData.get('name'),
                     carParkId: formData.get('carParkId') || null,
                     isEntryTrigger: formData.get('isEntryTrigger') === 'on',
@@ -242,8 +229,8 @@
                 };
 
                 try {
-                    const response = await fetch(`/admin/api/cameras/${formData.get('id')}`, {
-                        method: 'PUT',
+                    const response = await fetch('/admin/cameras/edit', {
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
@@ -266,9 +253,12 @@
                         return;
                     }
 
+                    const id = this.dataset.id;
                     try {
-                        const response = await fetch(`/admin/api/cameras/${this.dataset.id}`, {
-                            method: 'DELETE'
+                        const response = await fetch('/admin/cameras/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id })
                         });
 
                         if (response.ok) {
