@@ -93,7 +93,7 @@ function isLikelyThroughTraffic(detection, previousDetections) {
 }
 
 // Helper function to process buffer of detections
-async function processBuffer(siteId, VRM, buffer, throughLimit, events, minEventDuration, entriesByVRM) {
+async function processBuffer(siteId, VRM, buffer, throughLimit, minEventDuration, entriesByVRM) {
     // Sort buffer by timestamp
     buffer.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     console.log(`Processing buffer for ${VRM} at ${siteId}:`, {
@@ -101,6 +101,7 @@ async function processBuffer(siteId, VRM, buffer, throughLimit, events, minEvent
         throughLimit,
         minEventDuration
     });
+    const events = [];
     let i = 0;
     while (i < buffer.length) {
         const entry = buffer[i];
@@ -210,6 +211,7 @@ async function processBuffer(siteId, VRM, buffer, throughLimit, events, minEvent
             i++;
         }
     }
+    return events;
 }
 
 // Add this helper near the top of the file
@@ -268,11 +270,12 @@ async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = fa
                     vrm,
                     vrmDetections,
                     carPark.throughLimit || 10,
-                    events,
                     carPark.minEventDurationMinutes || 1,
                     detectionsByVRM
                 );
-                events.push(...processedEvents);
+                if (Array.isArray(processedEvents)) {
+                    events.push(...processedEvents);
+                }
             }
 
             // Bulk insert events for this car park
@@ -284,21 +287,24 @@ async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = fa
                     const values = batch.map(event => [
                         event.siteId,
                         event.VRM,
-                        event.entryTime,
-                        event.exitTime,
+                        new Date(event.entryTime).toISOString().slice(0, 19).replace('T', ' '),
+                        event.exitTime ? new Date(event.exitTime).toISOString().slice(0, 19).replace('T', ' ') : null,
                         event.durationMinutes,
-                        event.throughTraffic,
+                        event.throughTraffic ? 1 : 0,
                         event.entryDetectionId,
                         event.exitDetectionId,
                         event.entryCameraId,
                         event.exitCameraId
                     ]);
                     
-                    await conn.query(`
+                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+                    const query = `
                         INSERT INTO parking_events 
                         (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
-                        VALUES ?
-                    `, [values]);
+                        VALUES ${placeholders}
+                    `;
+                    
+                    await conn.query(query, values.flat());
                 }
                 console.log(`[DEBUG] Successfully inserted ${events.length} events for ${carPark.name}`);
             }
