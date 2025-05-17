@@ -26,7 +26,8 @@
     <%- include('../partials/admin_nav') %>
     
     <div class="container mt-4">
-        <h1 class="mb-4">Events Management</h1>
+        <h1 class="mb-2">Events Management</h1>
+        <p class="text-muted mb-4">Manage all parking events, regenerate or clear events, and review flagged/ambiguous cases. Use the navigation bar above to access different event views.</p>
         
         <!-- Status Section -->
         <div class="row mb-4">
@@ -81,6 +82,12 @@
                                     <option value="<%= carpark.siteId %>"><%= carpark.name %></option>
                                 <% }); %>
                             </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="clearFlaggedCheckbox">
+                            <label class="form-check-label" for="clearFlaggedCheckbox">
+                                Also clear flagged events (ambiguous/unpaired) during regeneration
+                            </label>
                         </div>
                         <button class="btn btn-primary" onclick="regenerateEvents()">
                             <i class="bi bi-arrow-clockwise"></i> Regenerate Events
@@ -178,14 +185,16 @@
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const carParkId = document.getElementById('carParkSelect').value;
+            const clearFlagged = document.getElementById('clearFlaggedCheckbox').checked;
 
             const params = new URLSearchParams();
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
             if (carParkId) params.append('carParkId', carParkId);
+            if (clearFlagged) params.append('clearFlagged', '1');
 
             showConfirmationModal(
-                'Are you sure you want to regenerate events? This will clear existing events first.',
+                'Are you sure you want to regenerate events? This will clear existing events first' + (clearFlagged ? ' and also clear flagged events.' : '.'),
                 () => {
                     document.getElementById('progressSection').style.display = 'block';
                     document.getElementById('progressBar').style.width = '0%';

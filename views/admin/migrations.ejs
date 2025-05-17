@@ -105,10 +105,12 @@ forms.forEach(form => {
     btn.disabled = true;
     btn.textContent = 'Applying...';
     const formData = new FormData(form);
+    const params = new URLSearchParams(formData);
     try {
       const res = await fetch(form.action, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
       });
       const data = await res.json();
       if (data.success) {

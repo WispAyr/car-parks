@@ -310,5 +310,41 @@ router.get('/debug/pcns/:siteId', async (req, res) => {
     }
 });
 
+// Car parks management
+router.get('/carparks', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const carparks = await conn.query('SELECT siteId, name, minEventDurationMinutes FROM carparks ORDER BY name');
+        res.render('admin/carparks', { 
+            carparks,
+            selectedCarPark: null
+        });
+    } catch (err) {
+        console.error('Error loading car parks:', err);
+        res.status(500).render('error', { message: 'Error loading car parks' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+router.post('/admin/carparks/edit', async (req, res) => {
+    let conn;
+    try {
+        const { originalSiteId, siteId, name, throughTrafficMinutes, minEventDurationMinutes } = req.body;
+        conn = await pool.getConnection();
+        await conn.query(
+            'UPDATE carparks SET siteId = ?, name = ?, throughTrafficMinutes = ?, minEventDurationMinutes = ? WHERE siteId = ?',
+            [siteId, name, throughTrafficMinutes, minEventDurationMinutes, originalSiteId]
+        );
+        res.redirect('/admin/carparks');
+    } catch (err) {
+        console.error('Error updating car park:', err);
+        res.status(500).render('error', { message: 'Error updating car park' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 return router;
 } 

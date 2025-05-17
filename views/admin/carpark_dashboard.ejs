@@ -593,7 +593,7 @@
                     <p><strong>Time:</strong> ${new Date(event.exitTime).toLocaleString()}</p>
                     <p><strong>VRM:</strong> ${event.VRM}</p>
                     <p><strong>Camera:</strong> ${event.exitCamera || 'N/A'}</p>
-                    <p><strong>Duration:</strong> ${event.durationMinutes !== null ? Number(event.durationMinutes).toFixed(2) + ' minutes' : '-'} </p>
+                    <p><strong>Duration:</strong> ${event.durationMinutes ? event.durationMinutes.toFixed(2) : 'N/A'} minutes</p>
                 ` : '<p class="text-muted">Still parked</p>';
 
                 // Populate images

@@ -121,8 +121,9 @@
         <h1>Parking Events</h1>
     </div>
     <div class="nav">
-        <a href="/events" class="active">Parking Events</a>
-        <a href="/realtime">Real-time Detections</a>
+        <a href="/events" class="<%= tab === 'completed' ? 'active' : '' %>">Completed Events</a>
+        <a href="/currently-parked" class="<%= tab === 'parked' ? 'active' : '' %>">Currently Parked</a>
+        <a href="/all-events" class="<%= tab === 'all' ? 'active' : '' %>">All Events</a>
         <form action="/admin/generate-events" method="GET" style="display: inline;">
             <button type="submit" class="btn btn-primary" style="margin-left: 10px;">Generate Events</button>
         </form>
@@ -140,75 +141,76 @@
                 <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>><%= cp.name %></option>
             <% }) %>
         </select>
+        <div class="filter-group" style="display: inline-block; margin-left: 20px;">
+            <label for="eventType"><strong>Event Type:</strong></label>
+            <select id="eventType" class="form-select" style="display: inline-block; width: auto;">
+                <option value="all">All Events</option>
+                <option value="completed">Completed Only</option>
+                <option value="parked">Currently Parked</option>
+                <option value="through">Through Traffic</option>
+            </select>
+        </div>
         <button id="timezoneToggle" class="timezone-btn" onclick="toggleTimezone()">
             Switch to GMT
         </button>
     </div>
     <div class="table-responsive">
-        <table class="table table-striped">
+        <table class="events-table">
             <thead>
                 <tr>
+                    <th>Car Park</th>
                     <th>VRM</th>
                     <th>Entry Time</th>
                     <th>Exit Time</th>
-                    <th>Duration (mins)</th>
-                    <th>Through Traffic</th>
-                    <th>Entry Image</th>
-                    <th>Exit Image</th>
+                    <th>Duration</th>
+                    <th>Type</th>
+                    <th>Entry Camera</th>
+                    <th>Exit Camera</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <% events.forEach(event => { %>
-                    <tr>
+                    <tr class="event-row" 
+                        data-event-type="<%= !event.exitTime ? 'parked' : (event.throughTraffic ? 'through' : 'completed') %>">
+                        <td><%= event.carParkName %></td>
                         <td><%= event.VRM %></td>
-                        <td><%= new Date(event.entryTime).toLocaleString() %></td>
-                        <td><%= new Date(event.exitTime).toLocaleString() %></td>
-                        <td><%= Number(event.durationMinutes).toFixed(1) + ' minutes' %></td>
-                        <td><%= event.throughTraffic ? 'Yes' : 'No' %></td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                <% if (event.hasEntryImage1) { %>
-                                    <img src="/image/<%= event.entryDetectionId %>/1" 
-                                         alt="Entry Image 1" 
-                                         class="thumbnail"
-                                         onclick="viewImage('<%= event.entryDetectionId %>', 1)"
-                                         onerror="this.src='/images/placeholder.jpg'">
-                                <% } %>
-                                <% if (event.hasEntryImage2) { %>
-                                    <img src="/image/<%= event.entryDetectionId %>/2" 
-                                         alt="Entry Image 2" 
-                                         class="thumbnail"
-                                         onclick="viewImage('<%= event.entryDetectionId %>', 2)"
-                                         onerror="this.src='/images/placeholder.jpg'">
-                                <% } %>
-                            </div>
+                        <td class="timestamp" data-timestamp="<%= event.entryTime %>">
+                            <%= new Date(event.entryTime).toLocaleString() %>
+                        </td>
+                        <td class="timestamp" data-timestamp="<%= event.exitTime %>">
+                            <%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %>
                         </td>
                         <td>
-                            <div class="d-flex gap-2">
-                                <% if (event.hasExitImage1) { %>
-                                    <img src="/image/<%= event.exitDetectionId %>/1" 
-                                         alt="Exit Image 1" 
-                                         class="thumbnail"
-                                         onclick="viewImage('<%= event.exitDetectionId %>', 1)"
-                                         onerror="this.src='/images/placeholder.jpg'">
-                                <% } %>
-                                <% if (event.hasExitImage2) { %>
-                                    <img src="/image/<%= event.exitDetectionId %>/2" 
-                                         alt="Exit Image 2" 
-                                         class="thumbnail"
-                                         onclick="viewImage('<%= event.exitDetectionId %>', 2)"
-                                         onerror="this.src='/images/placeholder.jpg'">
-                                <% } %>
-                            </div>
+                            <%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %>
                         </td>
                         <td>
-                            <a href="/events/<%= event.id %>" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-search"></i> Details
-                            </a>
+                            <% if (!event.exitTime) { %>
+                                <span class="badge bg-warning">Currently Parked</span>
+                            <% } else if (event.throughTraffic) { %>
+                                <span class="badge bg-info">Through Traffic</span>
+                            <% } else { %>
+                                <span class="badge bg-success">Completed</span>
+                            <% } %>
+                        </td>
+                        <td><%= event.entryCameraId %></td>
+                        <td><%= event.exitCameraId || '-' %></td>
+                        <td>
+                            <div class="action-buttons">
+                                <% if (event.hasEntryImage1 || event.hasEntryImage2) { %>
+                                    <button onclick="showImages('<%= event.entryDetectionId %>', 'entry')" class="btn btn-sm btn-primary">
+                                        Entry Images
+                                    </button>
+                                <% } %>
+                                <% if (event.hasExitImage1 || event.hasExitImage2) { %>
+                                    <button onclick="showImages('<%= event.exitDetectionId %>', 'exit')" class="btn btn-sm btn-primary">
+                                        Exit Images
+                                    </button>
+                                <% } %>
+                            </div>
                         </td>
                     </tr>
-                <% }); %>
+                <% }) %>
             </tbody>
         </table>
     </div>
@@ -229,18 +231,54 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <% let basePath = '/events'; if (tab === 'all') { basePath = '/all-events'; } else if (tab === 'parked') { basePath = '/currently-parked'; } %>
     <script>
-        function viewImage(detectionId, imageType) {
-            const img = document.getElementById('previewImage');
-            img.src = `/image/${detectionId}/${imageType}`;
-            new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            // Site filter
+            const siteSelect = document.getElementById('siteSelect');
+            siteSelect.addEventListener('change', function() {
+                const url = new URL(window.location.href);
+                url.searchParams.set('siteId', this.value);
+                window.location.href = url.toString();
+            });
 
-        // Handle car park filter
-        document.getElementById('siteSelect').addEventListener('change', function() {
-            const siteId = this.value;
-            window.location.href = siteId ? `/events?siteId=${siteId}` : '/events';
+            // Event type filter
+            const eventTypeSelect = document.getElementById('eventType');
+            eventTypeSelect.addEventListener('change', function() {
+                const rows = document.querySelectorAll('.event-row');
+                const selectedType = this.value;
+                
+                rows.forEach(row => {
+                    if (selectedType === 'all' || row.dataset.eventType === selectedType) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+
+            // Timezone toggle
+            let isGMT = false;
+            window.toggleTimezone = function() {
+                isGMT = !isGMT;
+                const button = document.getElementById('timezoneToggle');
+                button.textContent = isGMT ? 'Switch to Local Time' : 'Switch to GMT';
+                
+                document.querySelectorAll('.timestamp').forEach(cell => {
+                    const timestamp = cell.dataset.timestamp;
+                    if (timestamp) {
+                        const date = new Date(timestamp);
+                        cell.textContent = isGMT ? 
+                            date.toUTCString() : 
+                            date.toLocaleString();
+                    }
+                });
+            };
         });
+
+        function showImages(detectionId, type) {
+            window.open(`/detection-images/${detectionId}?type=${type}`, '_blank');
+        }
     </script>
 </body>
 </html> 

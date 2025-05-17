@@ -102,6 +102,7 @@
                                 <th>Site ID</th>
                                 <th>Name</th>
                                 <th>Through Traffic (mins)</th>
+                                <th>Min Event Duration (min)</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -111,6 +112,7 @@
                                     <td><%= cp.siteId %></td>
                                     <td><%= cp.name %></td>
                                     <td><%= cp.throughTrafficMinutes %></td>
+                                    <td><%= cp.minEventDurationMinutes || 5 %></td>
                                     <td>
                                         <div class="btn-group">
                                             <button class="btn btn-sm btn-outline-primary btn-icon" 
@@ -166,6 +168,10 @@
                             <label for="throughTrafficMinutes" class="form-label">Through Traffic Minutes</label>
                             <input type="number" class="form-control" id="throughTrafficMinutes" name="throughTrafficMinutes" value="5" required>
                         </div>
+                        <div class="mb-3">
+                            <label for="minEventDurationMinutes" class="form-label">Min Event Duration (minutes)</label>
+                            <input type="number" class="form-control" id="minEventDurationMinutes" name="minEventDurationMinutes" value="5" min="1" required>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -198,6 +204,10 @@
                         <div class="mb-3">
                             <label for="editThroughTrafficMinutes" class="form-label">Through Traffic Minutes</label>
                             <input type="number" class="form-control" id="editThroughTrafficMinutes" name="throughTrafficMinutes" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="minEventDurationMinutes" class="form-label">Min Event Duration (minutes)</label>
+                            <input type="number" class="form-control" id="minEventDurationMinutes" name="minEventDurationMinutes" required>
                         </div>
                     </div>
                     <div class="modal-footer">

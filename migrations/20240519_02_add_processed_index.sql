@@ -1,0 +1,1 @@
+CREATE INDEX idx_anpr_detections_processed ON anpr_detections (processed, processed_at); 
