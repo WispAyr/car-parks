@@ -1,0 +1,134 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Car Park Processing Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Enable or disable event generation for specific car parks. Disabled car parks will not generate new events.
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Car Park</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% carparks.forEach(cp => { %>
+                                    <tr>
+                                        <td>
+                                            <strong><%= cp.name %></strong>
+                                            <br>
+                                            <small class="text-muted"><%= cp.siteId %></small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-<%= cp.isEnabled ? 'success' : 'danger' %>">
+                                                <%= cp.isEnabled ? 'Enabled' : 'Disabled' %>
+                                            </span>
+                                        </td>
+                                        <td><%= cp.reason || '-' %></td>
+                                        <td><%= new Date(cp.lastUpdated).toLocaleString() %></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary toggle-status" 
+                                                    data-site-id="<%= cp.siteId %>"
+                                                    data-current-status="<%= cp.isEnabled %>">
+                                                <%= cp.isEnabled ? 'Disable' : 'Enable' %>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Toggle Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Processing Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="statusForm">
+                    <input type="hidden" id="siteId" name="siteId">
+                    <input type="hidden" id="newStatus" name="isEnabled">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <textarea class="form-control" id="reason" name="reason" rows="3" 
+                                placeholder="Enter reason for changing status (optional)"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveStatus">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+    
+    // Handle toggle buttons
+    document.querySelectorAll('.toggle-status').forEach(button => {
+        button.addEventListener('click', function() {
+            const siteId = this.dataset.siteId;
+            const currentStatus = this.dataset.currentStatus === 'true';
+            const newStatus = !currentStatus;
+            
+            document.getElementById('siteId').value = siteId;
+            document.getElementById('newStatus').value = newStatus;
+            document.getElementById('reason').value = '';
+            
+            statusModal.show();
+        });
+    });
+    
+    // Handle save
+    document.getElementById('saveStatus').addEventListener('click', async function() {
+        const form = document.getElementById('statusForm');
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch('/admin/carpark-processing/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + error.message);
+            }
+        } catch (err) {
+            alert('Error updating status: ' + err.message);
+        }
+    });
+});
+</script>
+
+<%- include('../partials/footer') %> 

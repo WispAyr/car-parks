@@ -18,13 +18,16 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/admin">Admin</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/migrations">Migrations</a>
+                </li>
             </ul>
             <div class="d-flex align-items-center">
                 <select id="carParkSelector" class="form-select car-park-selector me-2" onchange="handleCarParkChange(this.value)">
                     <option value="">All Car Parks</option>
-                    <% if (typeof carparks !== 'undefined') { %>
+                    <% if (typeof carparks !== 'undefined' && carparks) { %>
                         <% carparks.forEach(carpark => { %>
-                            <option value="<%= carpark.siteId %>" <%= selectedCarPark === carpark.siteId ? 'selected' : '' %>>
+                            <option value="<%= carpark.siteId %>" <%= (typeof selectedCarPark !== 'undefined' && selectedCarPark === carpark.siteId) ? 'selected' : '' %>>
                                 <%= carpark.name %>
                             </option>
                         <% }); %>

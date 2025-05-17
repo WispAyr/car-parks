@@ -1,0 +1,81 @@
+<h2>Camera/Detection Mapping Debug</h2>
+
+<h3>All Cameras</h3>
+<table class="table table-bordered table-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Car Park ID</th>
+      <th>Entry Trigger</th>
+      <th>Exit Trigger</th>
+      <th>Direction</th>
+      <th>Other Fields</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% cameras.forEach(c => { %>
+      <tr class="<%= camerasNoDetections.find(cam => cam.name === c.name) ? 'table-warning' : '' %>">
+        <td><%= c.name %></td>
+        <td><%= c.carParkId %></td>
+        <td><%= c.isEntryTrigger ? 'Yes' : 'No' %></td>
+        <td><%= c.isExitTrigger ? 'Yes' : 'No' %></td>
+        <td><%= c.direction %></td>
+        <td><%= Object.entries(c).filter(([k]) => !['name','carParkId','isEntryTrigger','isExitTrigger','direction'].includes(k)).map(([k,v]) => `${k}: ${v}`).join(', ') %></td>
+        <td>
+          <% if (camerasNoDetections.find(cam => cam.name === c.name)) { %>
+            <span class="badge bg-warning text-dark">No Detections</span>
+          <% } else { %>
+            <span class="badge bg-success">OK</span>
+          <% } %>
+        </td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<h3>All Detection CameraIDs</h3>
+<table class="table table-bordered table-sm">
+  <thead>
+    <tr>
+      <th>cameraID</th>
+      <th>Detection Count</th>
+      <th>Last Detection</th>
+      <th>Status</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% detectionStats.forEach(d => { %>
+      <tr class="<%= detectionsNoCamera.find(x => x.cameraID === d.cameraID) ? 'table-danger' : (detectionsNoCameraInsensitive.find(x => x.cameraID === d.cameraID) ? 'table-warning' : '') %>">
+        <td><%= d.cameraID %></td>
+        <td><%= d.count %></td>
+        <td><%= d.lastDetection ? new Date(d.lastDetection).toLocaleString() : 'Never' %></td>
+        <td>
+          <% if (detectionsNoCamera.find(x => x.cameraID === d.cameraID)) { %>
+            <span class="badge bg-danger">No Matching Camera</span>
+          <% } else if (detectionsNoCameraInsensitive.find(x => x.cameraID === d.cameraID)) { %>
+            <span class="badge bg-warning text-dark">Case/Whitespace Mismatch</span>
+          <% } else { %>
+            <span class="badge bg-success">OK</span>
+          <% } %>
+        </td>
+        <td>
+          <% if (detectionsNoCamera.find(x => x.cameraID === d.cameraID)) { %>
+            Not found in cameras table
+          <% } else if (detectionsNoCameraInsensitive.find(x => x.cameraID === d.cameraID)) { %>
+            Similar camera exists (case/whitespace mismatch)
+          <% } %>
+        </td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<h4>Legend:</h4>
+<ul>
+  <li><span class="badge bg-success">OK</span>: Mapping is correct</li>
+  <li><span class="badge bg-warning text-dark">No Detections</span>: Camera exists but has no detections</li>
+  <li><span class="badge bg-danger">No Matching Camera</span>: Detection cameraID not found in cameras table</li>
+  <li><span class="badge bg-warning text-dark">Case/Whitespace Mismatch</span>: Detection cameraID only matches a camera name if case/whitespace is ignored</li>
+</ul> 

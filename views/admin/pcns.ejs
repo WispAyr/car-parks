@@ -1,0 +1,236 @@
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        PCN Management - <%= carpark.name %>
+                        <small class="text-muted">(<%= carpark.siteId %>)</small>
+                    </h5>
+                    <div>
+                        <a href="/admin/carparks" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Back to Car Parks
+                        </a>
+                        <button id="housekeepingBtn" class="btn btn-outline-warning btn-sm ms-2">Housekeeping</button>
+                        <span id="housekeepingMsg" class="ms-2"></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- PCN List -->
+                    <h6 class="mb-3">Issued PCNs</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>PCN #</th>
+                                    <th>VRM</th>
+                                    <th>Issue Date</th>
+                                    <th>Due Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (pcns && pcns.length > 0) { %>
+                                    <% pcns.forEach(pcn => { %>
+                                        <tr>
+                                            <td><%= pcn.id %></td>
+                                            <td><%= pcn.vrm %></td>
+                                            <td><%= new Date(pcn.issueDate).toLocaleDateString() %></td>
+                                            <td><%= new Date(pcn.dueDate).toLocaleDateString() %></td>
+                                            <td>£<%= pcn.amount.toFixed(2) %></td>
+                                            <td>
+                                                <span class="badge bg-<%= 
+                                                    pcn.status === 'paid' ? 'success' :
+                                                    pcn.status === 'cancelled' ? 'danger' :
+                                                    pcn.status === 'appealed' ? 'warning' : 'primary'
+                                                %>">
+                                                    <%= pcn.status.charAt(0).toUpperCase() + pcn.status.slice(1) %>
+                                                </span>
+                                            </td>
+                                            <td><%= pcn.reason %></td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                                        Update Status
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li>
+                                                            <form action="/admin/carparks/<%= carpark.siteId %>/pcns/<%= pcn.id %>/update-status" method="POST">
+                                                                <input type="hidden" name="status" value="paid">
+                                                                <button type="submit" class="dropdown-item">Mark as Paid</button>
+                                                            </form>
+                                                        </li>
+                                                        <li>
+                                                            <form action="/admin/carparks/<%= carpark.siteId %>/pcns/<%= pcn.id %>/update-status" method="POST">
+                                                                <input type="hidden" name="status" value="cancelled">
+                                                                <button type="submit" class="dropdown-item">Cancel PCN</button>
+                                                            </form>
+                                                        </li>
+                                                        <li>
+                                                            <form action="/admin/carparks/<%= carpark.siteId %>/pcns/<%= pcn.id %>/update-status" method="POST">
+                                                                <input type="hidden" name="status" value="appealed">
+                                                                <button type="submit" class="dropdown-item">Mark as Appealed</button>
+                                                            </form>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="8" class="text-center">No PCNs issued yet</td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Recent Events -->
+                    <h6 class="mb-3 mt-4">Recent Parking Events</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>VRM</th>
+                                    <th>Entry Time</th>
+                                    <th>Exit Time</th>
+                                    <th>Duration</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (recentEvents && recentEvents.length > 0) { %>
+                                    <% recentEvents.forEach(event => { %>
+                                        <tr>
+                                            <td><%= event.vrm %></td>
+                                            <td><%= new Date(event.entryTime).toLocaleString() %></td>
+                                            <td>
+                                                <%= event.exitTime && event.exitTime !== '1970-01-01T01:00:00.000Z' ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %>
+                                            </td>
+                                            <td>
+                                                <%= event.durationMinutes !== null && event.exitTime && event.exitTime !== '1970-01-01T01:00:00.000Z' ? Number(event.durationMinutes).toFixed(2) + ' minutes' : '-' %>
+                                            </td>
+                                            <td>
+                                                <% if (!event.exitTime || event.exitTime === '1970-01-01T01:00:00.000Z') { %>
+                                                    <!-- No action for open events -->
+                                                <% } else if (event.pcnCount === 0) { %>
+                                                    <button type="button" class="btn btn-sm btn-primary" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#issuePcnModal"
+                                                            data-event-id="<%= event.id %>"
+                                                            data-vrm="<%= event.vrm %>">
+                                                        Issue PCN
+                                                    </button>
+                                                <% } else { %>
+                                                    <span class="badge bg-info">PCN Already Issued</span>
+                                                <% } %>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="5" class="text-center">No recent parking events</td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Issue PCN Modal -->
+<div class="modal fade" id="issuePcnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/admin/carparks/<%= carpark.siteId %>/pcns/issue" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Issue PCN</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="eventId" id="eventId">
+                    <input type="hidden" name="vrm" id="vrm">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Vehicle Registration</label>
+                        <input type="text" class="form-control" id="vrmDisplay" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Amount (£)</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" class="form-control" name="dueDate" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <textarea class="form-control" name="reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Issue PCN</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default due date to 28 days from now
+    const dueDateInput = document.querySelector('input[name="dueDate"]');
+    const defaultDueDate = new Date();
+    defaultDueDate.setDate(defaultDueDate.getDate() + 28);
+    dueDateInput.value = defaultDueDate.toISOString().split('T')[0];
+
+    // Handle PCN issue modal
+    const issuePcnModal = document.getElementById('issuePcnModal');
+    issuePcnModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const eventId = button.getAttribute('data-event-id');
+        const vrm = button.getAttribute('data-vrm');
+        
+        document.getElementById('eventId').value = eventId;
+        document.getElementById('vrm').value = vrm;
+        document.getElementById('vrmDisplay').value = vrm;
+    });
+
+    // Housekeeping button
+    const housekeepingBtn = document.getElementById('housekeepingBtn');
+    const housekeepingMsg = document.getElementById('housekeepingMsg');
+    if (housekeepingBtn) {
+        housekeepingBtn.addEventListener('click', async function() {
+            housekeepingBtn.disabled = true;
+            housekeepingMsg.textContent = 'Cleaning...';
+            try {
+                const res = await fetch('/admin/housekeeping/pcns', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    housekeepingMsg.textContent = `Success! Deleted ${data.deleted} orphaned PCNs.`;
+                    housekeepingMsg.className = 'text-success ms-2';
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    housekeepingMsg.textContent = 'Cleanup failed.';
+                    housekeepingMsg.className = 'text-danger ms-2';
+                }
+            } catch (err) {
+                housekeepingMsg.textContent = 'Error cleaning up.';
+                housekeepingMsg.className = 'text-danger ms-2';
+            }
+            housekeepingBtn.disabled = false;
+        });
+    }
+});
+</script> 

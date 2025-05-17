@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ANPR Detections</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', Arial, sans-serif;
@@ -116,21 +117,34 @@
             }
         }
         .timezone-btn {
-            position: absolute;
-            top: 32px;
-            right: 32px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid #6366f1;
             background: #fff;
             color: #6366f1;
-            font-weight: 500;
+            border: 1px solid #6366f1;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
             cursor: pointer;
             transition: all 0.2s;
         }
         .timezone-btn:hover {
             background: #6366f1;
             color: #fff;
+        }
+        .thumbnail {
+            width: 100px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 2px;
+        }
+        .thumbnail:hover {
+            transform: scale(1.1);
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -141,43 +155,60 @@
             Switch to GMT
         </button>
     </div>
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>VRM</th>
-                    <th>Time</th>
-                    <th>Type</th>
-                    <th>Direction</th>
-                    <th>Confidence</th>
-                    <th>Tag</th>
-                    <th>Tag Confidence</th>
-                    <th>Country</th>
-                    <th>Camera</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% detections.forEach(detection => { %>
+    <div class="container-fluid">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td><%= detection.id %></td>
-                        <td><%= detection.VRM %></td>
-                        <td><%= detection.timestamp %></td>
-                        <td><%= detection.type %></td>
-                        <td><%= detection.direction %></td>
-                        <td><%= detection.confidence %></td>
-                        <td><%= detection.tag %></td>
-                        <td><%= detection.tagConfidence %></td>
-                        <td><%= detection.country %></td>
-                        <td><%= detection.cameraID %></td>
-                        <td>
-                            <a href="/image/<%= detection.id %>/1" target="_blank" class="btn btn-sm btn-primary">View Image</a>
-                        </td>
+                        <th>ID</th>
+                        <th>VRM</th>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Direction</th>
+                        <th>Confidence</th>
+                        <th>Tag</th>
+                        <th>Tag Confidence</th>
+                        <th>Country</th>
+                        <th>Camera</th>
+                        <th>Images</th>
                     </tr>
-                <% }); %>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <% detections.forEach(detection => { %>
+                        <tr>
+                            <td><%= detection.id %></td>
+                            <td><%= detection.VRM %></td>
+                            <td><%= detection.timestamp %></td>
+                            <td><%= detection.type %></td>
+                            <td><%= detection.direction %></td>
+                            <td><%= detection.confidence %></td>
+                            <td><%= detection.tag %></td>
+                            <td><%= detection.tagConfidence %></td>
+                            <td><%= detection.country %></td>
+                            <td><%= detection.cameraID %></td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <% if (detection.hasImage1) { %>
+                                        <img src="/image/<%= detection.id %>/1" 
+                                             alt="Image 1" 
+                                             class="thumbnail"
+                                             onclick="viewImage('<%= detection.id %>', 1)"
+                                             onerror="this.src='/images/placeholder.jpg'">
+                                    <% } %>
+                                    <% if (detection.hasImage2) { %>
+                                        <img src="/image/<%= detection.id %>/2" 
+                                             alt="Image 2" 
+                                             class="thumbnail"
+                                             onclick="viewImage('<%= detection.id %>', 2)"
+                                             onerror="this.src='/images/placeholder.jpg'">
+                                    <% } %>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
     </div>
     <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center">
@@ -200,12 +231,22 @@
             <% } %>
         </ul>
     </nav>
-    <!-- Modal for full-size image -->
-    <div id="imageModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); align-items:center; justify-content:center;">
-        <span id="closeModal" style="position:absolute; top:32px; right:48px; font-size:2.5rem; color:#fff; cursor:pointer; font-weight:700;">&times;</span>
-        <img id="modalImg" src="" alt="Full Size" style="max-width:90vw; max-height:80vh; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.25); background:#fff; display:block; margin:auto;">
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" class="image-preview" src="" alt="Preview">
+                </div>
+            </div>
+        </div>
     </div>
     <script src="/js/utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.js-datetime').forEach(el => {
@@ -215,96 +256,24 @@
                 el.textContent = after;
             });
         });
-        function showModal(src) {
-            var modal = document.getElementById('imageModal');
-            var modalImg = document.getElementById('modalImg');
-            modalImg.src = src;
-            modal.style.display = 'flex';
+        function viewImage(id, type) {
+            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = `/image/${id}/${type}`;
+            modal.show();
         }
-        document.getElementById('closeModal').onclick = function() {
-            document.getElementById('imageModal').style.display = 'none';
-            document.getElementById('modalImg').src = '';
-        };
-        // Close modal on click outside image
-        document.getElementById('imageModal').onclick = function(e) {
-            if (e.target === this) {
-                this.style.display = 'none';
-                document.getElementById('modalImg').src = '';
-            }
-        };
-        // Optional: close modal on ESC key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.getElementById('imageModal').style.display = 'none';
-                document.getElementById('modalImg').src = '';
-            }
-        });
-
-        // --- Live update polling for new detections ---
-        const grid = document.querySelector('.detections-grid');
-        const timezoneToggle = document.getElementById('timezoneToggle');
-        let knownIds = [];
-        let currentDetections = [];
-        
-        function renderDetectionCard(detection, highlight=false) {
-            const card = document.createElement('div');
-            card.className = 'detection-card';
-            if (highlight) card.style.boxShadow = '0 0 0 4px #6366f1, 0 4px 16px rgba(0,0,0,0.08)';
-            card.innerHTML = `
-                <div class="image-container">
-                    <img src="/image/${detection.id}/1" alt="ANPR Detection 1" class="detection-image" loading="lazy"
-                         onerror="this.onerror=null; this.src='/placeholder.jpg';" onclick="showModal('/image/${detection.id}/1')">
-                    <img src="/image/${detection.id}/2" alt="ANPR Detection 2" class="detection-image" loading="lazy"
-                         onerror="this.onerror=null; this.src='/placeholder.jpg';" onclick="showModal('/image/${detection.id}/2')">
-                </div>
-                <div class="detection-info">
-                    <p><strong>ID:</strong> ${detection.id}</p>
-                    ${Object.keys(detection).map(key => {
-                        if (["id","image","image1","image2","updatedAt","createdById","updatedById","CarParkID","CameraIDLinked","instanceID"].includes(key)) return '';
-                        if (key === 'timestamp' || key === 'createdAt') {
-                            return `<p><strong>${key}:</strong> ${formatDateTime(detection[key])}</p>`;
-                        }
-                        return `<p><strong>${key}:</strong> ${detection[key] ?? ''}</p>`;
-                    }).join('')}
-                </div>
-            `;
-            return card;
-        }
-
-        // Make refreshTimes available globally
-        window.refreshTimes = function() {
-            // Re-render all detection cards
-            const cards = grid.querySelectorAll('.detection-card');
-            cards.forEach(card => {
-                const id = card.querySelector('.detection-info p').textContent.split(':')[1].trim();
-                const detection = currentDetections.find(d => d.id.toString() === id);
-                if (detection) {
-                    const newCard = renderDetectionCard(detection);
-                    card.replaceWith(newCard);
-                }
+        function toggleTimezone() {
+            const button = document.getElementById('timezoneToggle');
+            const currentText = button.textContent;
+            const newText = currentText.includes('GMT') ? 'Switch to Local Time' : 'Switch to GMT';
+            button.textContent = newText;
+            
+            document.querySelectorAll('.js-datetime').forEach(el => {
+                const timestamp = el.getAttribute('data-timestamp');
+                const formatted = formatDateTime(timestamp, currentText.includes('GMT'));
+                el.textContent = formatted;
             });
-            timezoneToggle.textContent = `Switch to ${useBST ? 'GMT' : 'BST'}`;
-        };
-
-        async function pollForNewDetections() {
-            try {
-                const res = await fetch('/api/detections');
-                const data = await res.json();
-                currentDetections = data;
-                if (Array.isArray(data) && data.length > 0) {
-                    const newOnes = data.filter(d => !knownIds.includes(d.id));
-                    if (newOnes.length > 0) {
-                        newOnes.reverse().forEach(detection => {
-                            const card = renderDetectionCard(detection, true);
-                            grid.insertBefore(card, grid.firstChild);
-                            setTimeout(() => card.style.boxShadow = '', 2000);
-                        });
-                        knownIds = data.map(d => d.id).concat(knownIds).slice(0, 50);
-                    }
-                }
-            } catch (e) { /* ignore errors */ }
         }
-        setInterval(pollForNewDetections, 10000);
     </script>
 </body>
 </html>

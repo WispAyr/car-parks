@@ -1,0 +1,367 @@
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        Event Details - <%= event.carparkName %>
+                        <small class="text-muted">(<%= event.siteId %>)</small>
+                    </h5>
+                    <a href="/events" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Events
+                    </a>
+                </div>
+                <div class="card-body">
+                    <!-- Basic Event Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Event Information</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th style="width: 150px;">Vehicle Registration</th>
+                                    <td><%= event.VRM %></td>
+                                </tr>
+                                <tr>
+                                    <th>Entry Time</th>
+                                    <td><%= new Date(event.entryTime).toLocaleString() %></td>
+                                </tr>
+                                <tr>
+                                    <th>Exit Time</th>
+                                    <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                </tr>
+                                <tr>
+                                    <th>Duration</th>
+                                    <td><%= event.durationMinutes !== null ? Number(event.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
+                                </tr>
+                                <tr>
+                                    <th>Through Traffic</th>
+                                    <td><%= event.throughTraffic ? 'Yes' : 'No' %></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Entry Detection Details -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="mb-3">Entry Detection</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 150px;">Camera</th>
+                                            <td><%= event.entryCameraName %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Direction</th>
+                                            <td><%= event.entryDirection %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Confidence</th>
+                                            <td><%= event.entryConfidence %>%</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tag</th>
+                                            <td><%= event.entryTag || '-' %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tag Confidence</th>
+                                            <td><%= event.entryTagConfidence ? event.entryTagConfidence + '%' : '-' %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Country</th>
+                                            <td><%= event.entryCountry || '-' %></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex gap-3">
+                                        <div>
+                                            <h6 class="text-muted mb-2">Image 1</h6>
+                                            <img src="/image/<%= event.entryDetectionId %>/1" 
+                                                 alt="Entry Image 1" 
+                                                 class="img-thumbnail" 
+                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
+                                                 onclick="viewImage('<%= event.entryDetectionId %>', 1)"
+                                                 onerror="this.src='/images/placeholder.jpg'">
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted mb-2">Image 2</h6>
+                                            <img src="/image/<%= event.entryDetectionId %>/2" 
+                                                 alt="Entry Image 2" 
+                                                 class="img-thumbnail" 
+                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
+                                                 onclick="viewImage('<%= event.entryDetectionId %>', 2)"
+                                                 onerror="this.src='/images/placeholder.jpg'">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exit Detection Details -->
+                    <% if (event.exitTime) { %>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="mb-3">Exit Detection</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 150px;">Camera</th>
+                                            <td><%= event.exitCameraName %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Direction</th>
+                                            <td><%= event.exitDirection %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Confidence</th>
+                                            <td><%= event.exitConfidence %>%</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tag</th>
+                                            <td><%= event.exitTag || '-' %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tag Confidence</th>
+                                            <td><%= event.exitTagConfidence ? event.exitTagConfidence + '%' : '-' %></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Country</th>
+                                            <td><%= event.exitCountry || '-' %></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex gap-3">
+                                        <div>
+                                            <h6 class="text-muted mb-2">Image 1</h6>
+                                            <img src="/image/<%= event.exitDetectionId %>/1" 
+                                                 alt="Exit Image 1" 
+                                                 class="img-thumbnail" 
+                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
+                                                 onclick="viewImage('<%= event.exitDetectionId %>', 1)"
+                                                 onerror="this.src='/images/placeholder.jpg'">
+                                        </div>
+                                        <div>
+                                            <h6 class="text-muted mb-2">Image 2</h6>
+                                            <img src="/image/<%= event.exitDetectionId %>/2" 
+                                                 alt="Exit Image 2" 
+                                                 class="img-thumbnail" 
+                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
+                                                 onclick="viewImage('<%= event.exitDetectionId %>', 2)"
+                                                 onerror="this.src='/images/placeholder.jpg'">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- PCNs -->
+                    <% if (pcns && pcns.length > 0) { %>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="mb-3">Parking Charge Notices</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>PCN #</th>
+                                            <th>Issue Date</th>
+                                            <th>Due Date</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                            <th>Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% pcns.forEach(pcn => { %>
+                                            <tr>
+                                                <td><%= pcn.id %></td>
+                                                <td><%= new Date(pcn.issueDate).toLocaleDateString() %></td>
+                                                <td><%= new Date(pcn.dueDate).toLocaleDateString() %></td>
+                                                <td>£<%= pcn.amount.toFixed(2) %></td>
+                                                <td>
+                                                    <span class="badge bg-<%= 
+                                                        pcn.status === 'paid' ? 'success' :
+                                                        pcn.status === 'cancelled' ? 'danger' :
+                                                        pcn.status === 'appealed' ? 'warning' : 'primary'
+                                                    %>">
+                                                        <%= pcn.status.charAt(0).toUpperCase() + pcn.status.slice(1) %>
+                                                    </span>
+                                                </td>
+                                                <td><%= pcn.reason %></td>
+                                            </tr>
+                                        <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- Detection Flags -->
+                    <% if ((entryFlags && entryFlags.length > 0) || (exitFlags && exitFlags.length > 0)) { %>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="mb-3">Detection Flags</h6>
+                            <% if (entryFlags && entryFlags.length > 0) { %>
+                                <div class="mb-3">
+                                    <h6 class="text-muted">Entry Detection Flags</h6>
+                                    <div class="d-flex gap-2">
+                                        <% entryFlags.forEach(flag => { %>
+                                            <span class="badge bg-<%= 
+                                                flag.flagType === 'ignore' ? 'secondary' :
+                                                flag.flagType === 'problematic' ? 'danger' :
+                                                flag.flagType === 'test' ? 'info' : 'warning'
+                                            %>">
+                                                <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
+                                                <% if (flag.description) { %>
+                                                    - <%= flag.description %>
+                                                <% } %>
+                                            </span>
+                                        <% }); %>
+                                    </div>
+                                </div>
+                            <% } %>
+                            <% if (exitFlags && exitFlags.length > 0) { %>
+                                <div>
+                                    <h6 class="text-muted">Exit Detection Flags</h6>
+                                    <div class="d-flex gap-2">
+                                        <% exitFlags.forEach(flag => { %>
+                                            <span class="badge bg-<%= 
+                                                flag.flagType === 'ignore' ? 'secondary' :
+                                                flag.flagType === 'problematic' ? 'danger' :
+                                                flag.flagType === 'test' ? 'info' : 'warning'
+                                            %>">
+                                                <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
+                                                <% if (flag.description) { %>
+                                                    - <%= flag.description %>
+                                                <% } %>
+                                            </span>
+                                        <% }); %>
+                                    </div>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- Related Events for this VRM at this Car Park -->
+                    <% if (relatedEvents && relatedEvents.length > 0) { %>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="mb-3">Other Events for <%= event.VRM %> at <%= event.carparkName %></h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Entry Time</th>
+                                            <th>Exit Time</th>
+                                            <th>Duration</th>
+                                            <th>Through Traffic</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% relatedEvents.forEach(ev => { %>
+                                            <tr>
+                                                <td><%= new Date(ev.entryTime).toLocaleString() %></td>
+                                                <td><%= ev.exitTime ? new Date(ev.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                                <td><%= ev.durationMinutes !== null ? Number(ev.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
+                                                <td><%= ev.throughTraffic ? 'Yes' : 'No' %></td>
+                                                <td><a href="/events/<%= ev.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
+                                            </tr>
+                                        <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- All Detections for this VRM at this Car Park -->
+                    <% if (relatedDetections && relatedDetections.length > 0) { %>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="mb-3">All Detections for <%= event.VRM %> at <%= event.carparkName %></h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Camera</th>
+                                            <th>Direction</th>
+                                            <th>Confidence</th>
+                                            <th>Tag</th>
+                                            <th>Tag Confidence</th>
+                                            <th>Country</th>
+                                            <th>Images</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% relatedDetections.forEach(det => { %>
+                                            <tr>
+                                                <td><%= new Date(det.timestamp).toLocaleString() %></td>
+                                                <td><%= det.cameraID %></td>
+                                                <td><%= det.direction %></td>
+                                                <td><%= det.confidence %></td>
+                                                <td><%= det.tag || '-' %></td>
+                                                <td><%= det.tagConfidence ? det.tagConfidence + '%' : '-' %></td>
+                                                <td><%= det.country || '-' %></td>
+                                                <td>
+                                                    <div class="d-flex gap-2">
+                                                        <img src="/image/<%= det.id %>/1" 
+                                                             alt="Image 1" 
+                                                             class="img-thumbnail" 
+                                                             style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                                             onclick="viewImage('<%= det.id %>', 1)"
+                                                             onerror="this.src='/images/placeholder.jpg'">
+                                                        <img src="/image/<%= det.id %>/2" 
+                                                             alt="Image 2" 
+                                                             class="img-thumbnail" 
+                                                             style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                                             onclick="viewImage('<%= det.id %>', 2)"
+                                                             onerror="this.src='/images/placeholder.jpg'">
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Image Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="previewImage" class="img-fluid" alt="Detection Image">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewImage(detectionId, imageType) {
+    const img = document.getElementById('previewImage');
+    img.src = `/image/${detectionId}/${imageType}`;
+    new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
+}
+</script> 

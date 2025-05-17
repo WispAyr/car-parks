@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Detection Flags</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .detection-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+        }
+        .detection-card.flagged {
+            border-left: 4px solid #dc3545;
+        }
+        .detection-card.ignored {
+            opacity: 0.6;
+        }
+        .flag-badge {
+            margin-right: 0.5rem;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 150px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Manage Detection Flags</h1>
+            <div>
+                <button class="btn btn-outline-primary me-2" onclick="window.location.href='/realtime'">
+                    ← Back to Detections
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFlagModal">
+                    Add Flag
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Filter Detections</h5>
+                        <form id="filterForm" class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Flag Type</label>
+                                <select class="form-select" name="flagType">
+                                    <option value="">All Flags</option>
+                                    <option value="ignore">Ignored</option>
+                                    <option value="problematic">Problematic</option>
+                                    <option value="test">Test</option>
+                                    <option value="manual_review">Manual Review</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Direction</label>
+                                <select class="form-select" name="direction">
+                                    <option value="">All Directions</option>
+                                    <option value="unknown">Unknown</option>
+                                    <option value="in">In</option>
+                                    <option value="out">Out</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Confidence</label>
+                                <select class="form-select" name="confidence">
+                                    <option value="">All Confidence</option>
+                                    <option value="low">Low (< 70%)</option>
+                                    <option value="medium">Medium (70-90%)</option>
+                                    <option value="high">High (> 90%)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary d-block w-100">Apply Filters</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="detectionsList">
+            <!-- Detections will be loaded here dynamically -->
+        </div>
+    </div>
+
+    <!-- Add Flag Modal -->
+    <div class="modal fade" id="addFlagModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Detection Flag</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addFlagForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Flag Type</label>
+                            <select class="form-select" name="flagType" required>
+                                <option value="ignore">Ignore</option>
+                                <option value="problematic">Problematic</option>
+                                <option value="test">Test</option>
+                                <option value="manual_review">Manual Review</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Flag</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to load detections
+        async function loadDetections() {
+            const formData = new FormData(document.getElementById('filterForm'));
+            const params = new URLSearchParams(formData);
+            
+            try {
+                const response = await fetch(`/api/detections?${params.toString()}`);
+                const detections = await response.json();
+                
+                const detectionsList = document.getElementById('detectionsList');
+                detectionsList.innerHTML = detections.map(detection => `
+                    <div class="detection-card ${detection.flags.includes('ignore') ? 'ignored' : ''} ${detection.flags.includes('problematic') ? 'flagged' : ''}">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <img src="/image/${detection.id}/1" class="image-preview mb-2" alt="Entry">
+                                <img src="/image/${detection.id}/2" class="image-preview" alt="Exit">
+                            </div>
+                            <div class="col-md-10">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5>${detection.VRM}</h5>
+                                        <p class="mb-1">
+                                            <strong>Time:</strong> ${new Date(detection.timestamp).toLocaleString()}<br>
+                                            <strong>Camera:</strong> ${detection.cameraID}<br>
+                                            <strong>Direction:</strong> ${detection.direction || 'Unknown'}<br>
+                                            <strong>Confidence:</strong> ${detection.confidence}%
+                                        </p>
+                                    </div>
+                                    <div>
+                                        ${detection.flags.map(flag => `
+                                            <span class="badge bg-${getFlagColor(flag)} flag-badge">
+                                                ${flag}
+                                            </span>
+                                        `).join('')}
+                                        <button class="btn btn-sm btn-outline-primary" onclick="toggleFlag(${detection.id})">
+                                            ${detection.flags.includes('ignore') ? 'Unignore' : 'Ignore'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading detections:', error);
+            }
+        }
+
+        // Function to get badge color based on flag type
+        function getFlagColor(flagType) {
+            switch (flagType) {
+                case 'ignore': return 'secondary';
+                case 'problematic': return 'danger';
+                case 'test': return 'warning';
+                case 'manual_review': return 'info';
+                default: return 'primary';
+            }
+        }
+
+        // Function to toggle ignore flag
+        async function toggleFlag(detectionId) {
+            try {
+                const response = await fetch(`/api/detections/${detectionId}/flag`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        flagType: 'ignore',
+                        isActive: true
+                    })
+                });
+                
+                if (response.ok) {
+                    loadDetections();
+                }
+            } catch (error) {
+                console.error('Error toggling flag:', error);
+            }
+        }
+
+        // Load detections on page load
+        document.addEventListener('DOMContentLoaded', loadDetections);
+
+        // Handle filter form submission
+        document.getElementById('filterForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            loadDetections();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,127 @@
+<h2>Database Migrations</h2>
+<div class="mb-3">
+  <button id="cleanupMigrationsBtn" class="btn btn-danger btn-sm">Clean Up Migrations Table</button>
+  <span id="cleanupMigrationsMsg" class="ms-2"></span>
+</div>
+<div class="mb-3">
+  <button id="resetMigrationsBtn" class="btn btn-warning btn-sm">Reset Migrations Table</button>
+  <span id="resetMigrationsMsg" class="ms-2"></span>
+</div>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Filename</th>
+      <th>Status</th>
+      <th>Applied At</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% migrations.forEach(function(migration) { %>
+      <tr>
+        <td><%= migration.filename %></td>
+        <td>
+          <% if (migration.applied_at) { %>
+            <span class="badge bg-success">Applied</span>
+          <% } else { %>
+            <span class="badge bg-warning text-dark">Pending</span>
+          <% } %>
+        </td>
+        <td><%= migration.applied_at ? migration.applied_at : '-' %></td>
+        <td>
+          <% if (!migration.applied_at) { %>
+            <form class="apply-migration-form" method="POST" action="/admin/migrations/apply" style="display:inline;">
+              <input type="hidden" name="filename" value="<%= migration.filename %>">
+              <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+            </form>
+          <% } else { %>
+            <span class="text-muted">-</span>
+          <% } %>
+        </td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<script>
+// Clean Up Migrations Table button
+const cleanupBtn = document.getElementById('cleanupMigrationsBtn');
+const cleanupMsg = document.getElementById('cleanupMigrationsMsg');
+if (cleanupBtn) {
+  cleanupBtn.addEventListener('click', async function() {
+    cleanupBtn.disabled = true;
+    cleanupMsg.textContent = 'Cleaning...';
+    try {
+      const res = await fetch('/admin/debug/cleanup-migrations-table');
+      const data = await res.json();
+      if (data.success) {
+        cleanupMsg.textContent = `Success! Deleted ${data.deleted} record(s).`;
+        cleanupMsg.className = 'text-success ms-2';
+      } else {
+        cleanupMsg.textContent = 'Cleanup failed.';
+        cleanupMsg.className = 'text-danger ms-2';
+      }
+    } catch (err) {
+      cleanupMsg.textContent = 'Error cleaning up.';
+      cleanupMsg.className = 'text-danger ms-2';
+    }
+    cleanupBtn.disabled = false;
+  });
+}
+
+// Reset Migrations Table button
+const resetBtn = document.getElementById('resetMigrationsBtn');
+const resetMsg = document.getElementById('resetMigrationsMsg');
+if (resetBtn) {
+  resetBtn.addEventListener('click', async function() {
+    if (!confirm('Are you sure you want to reset the migrations table? This will remove ALL migration history!')) return;
+    resetBtn.disabled = true;
+    resetMsg.textContent = 'Resetting...';
+    try {
+      const res = await fetch('/admin/debug/reset-migrations-table', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        resetMsg.textContent = 'Migrations table reset!';
+        resetMsg.className = 'text-success ms-2';
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        resetMsg.textContent = 'Reset failed.';
+        resetMsg.className = 'text-danger ms-2';
+      }
+    } catch (err) {
+      resetMsg.textContent = 'Error resetting.';
+      resetMsg.className = 'text-danger ms-2';
+    }
+    resetBtn.disabled = false;
+  });
+}
+
+// Improve migration apply success messages
+const forms = document.querySelectorAll('.apply-migration-form');
+forms.forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Applying...';
+    const formData = new FormData(form);
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Migration applied successfully!');
+        window.location.reload();
+      } else {
+        alert('Migration failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Migration failed: ' + err.message);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Apply';
+  });
+});
+</script> 

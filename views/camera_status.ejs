@@ -8,40 +8,49 @@
     <style>
         .camera-card {
             margin-bottom: 1rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-        .status-active {
-            background-color: #28a745;
-        }
-        .status-inactive {
-            background-color: #dc3545;
+        .camera-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
         }
         .metrics {
             margin-top: 10px;
-            font-size: 0.9rem;
+            font-size: 1rem;
         }
         .metrics span {
             display: inline-block;
-            min-width: 120px;
+            min-width: 140px;
         }
         .interval {
-            color: #6366f1;
-            font-weight: 500;
+            color: #4f46e5;
+            font-weight: 600;
         }
         .thresholds {
-            font-size: 0.8em;
-            color: #888;
-            margin-top: 6px;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 8px;
         }
         .sparkline {
-            margin-top: 10px;
-            height: 28px;
+            margin-top: 12px;
+            height: 30px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-online {
+            background-color: green;
+        }
+        .status-offline {
+            background-color: red;
+        }
+        .status-anomaly {
+            background-color: yellow;
         }
     </style>
 </head>
@@ -52,21 +61,27 @@
         <div class="row">
             <% cameras.forEach(camera => { %>
                 <div class="col-md-6 col-lg-4">
-                    <div class="card camera-card">
+                    <div class="card camera-card<%= camera.lastMonth === 0 ? ' border-danger' : '' %>">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
                                 <span class="status-indicator status-<%= camera.status %>"></span>
                                 <%= camera.name %>
+                                <span class="ms-2 badge bg-secondary"><%= camera.status.charAt(0).toUpperCase() + camera.status.slice(1) %></span>
                             </h5>
                         </div>
                         <div class="card-body">
+                            <% if (camera.lastMonth === 0) { %>
+                                <div class="alert alert-warning p-2 mb-2">
+                                    <strong>Warning:</strong> No detections in the last 30 days.
+                                </div>
+                            <% } %>
                             <p class="card-text">
                                 <strong>Last Detection:</strong> <%= camera.lastDetection ? new Date(camera.lastDetection).toLocaleString() : 'Never' %><br>
                                 <strong>Detection Count:</strong> <%= camera.detectionCount %><br>
                                 <strong>Direction:</strong> <%= camera.direction %><br>
                                 <strong>Entry Trigger:</strong> <%= camera.isEntryTrigger ? 'Yes' : 'No' %><br>
                                 <strong>Exit Trigger:</strong> <%= camera.isExitTrigger ? 'Yes' : 'No' %><br>
-                                <strong>Entry Direction:</strong> <%= camera.entryDirection %><br>
+                                <strong>Entry Direction:</strong> <%= camera.entryDirection || '-' %><br>
                                 <strong>Car Park ID:</strong> <%= camera.carParkId || 'Not assigned' %>
                             </p>
                             
@@ -94,6 +109,17 @@
                                 <span>Green ≤ <%= Math.round(camera.greenLimit) %> min</span> | 
                                 <span>Yellow ≤ <%= Math.round(camera.yellowLimit) %> min</span>
                             </div>
+                            
+                            <% if (camera.lastImageDetectionId) { %>
+                                <div class="mt-2">
+                                    <strong>Last Image:</strong><br>
+                                    <a href="/image/<%= camera.lastImageDetectionId %>/1" target="_blank">
+                                        <img src="/image/<%= camera.lastImageDetectionId %>/1" alt="Last Image" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" onerror="this.src='/images/placeholder.jpg'">
+                                    </a>
+                                </div>
+                            <% } else { %>
+                                <div class="mt-2 text-muted"><em>No image available</em></div>
+                            <% } %>
                             
                             <div class="sparkline">
                                 <canvas width="120" height="28" data-points="<%= camera.sparkline.join(',') %>"></canvas>
@@ -142,4 +168,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

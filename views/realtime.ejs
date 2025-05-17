@@ -1,0 +1,174 @@
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>VRM</th>
+      <th>Time</th>
+      <th>Type</th>
+      <th>Direction</th>
+      <th>Confidence</th>
+      <th>Tag</th>
+      <th>Tag Confidence</th>
+      <th>Country</th>
+      <th>Camera</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% detections.forEach(function(detection) { %>
+      <tr>
+        <td><%= detection.id %></td>
+        <td><%= detection.VRM %></td>
+        <td><%= detection.timestamp %></td>
+        <td><%= detection.type %></td>
+        <td><%= detection.direction %></td>
+        <td><%= detection.confidence %></td>
+        <td><%= detection.tag %></td>
+        <td><%= detection.tagConfidence %></td>
+        <td><%= detection.country %></td>
+        <td><%= detection.cameraID %></td>
+        <td>
+          <div class="d-flex gap-2">
+            <% if (detection.hasImage1) { %>
+              <img src="/image/<%= detection.id %>/1" alt="Image 1" class="thumbnail" style="width:48px;height:36px;object-fit:cover;cursor:pointer;" onclick="viewImage('<%= detection.id %>')" onerror="this.src='/images/placeholder.jpg'">
+            <% } %>
+            <% if (detection.hasImage2) { %>
+              <img src="/image/<%= detection.id %>/2" alt="Image 2" class="thumbnail" style="width:48px;height:36px;object-fit:cover;cursor:pointer;" onclick="viewImage('<%= detection.id %>')" onerror="this.src='/images/placeholder.jpg'">
+            <% } %>
+            <% if (!detection.hasImage1 && !detection.hasImage2) { %>
+              <span class="text-muted">Image Not Available</span>
+            <% } %>
+          </div>
+        </td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<!-- Edit Detection Modal -->
+<div class="modal fade" id="editDetectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Detection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDetectionForm">
+                    <input type="hidden" id="editDetectionId">
+                    <div class="mb-3">
+                        <label class="form-label">Vehicle Registration</label>
+                        <input type="text" class="form-control" id="editVRM" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Direction</label>
+                        <select class="form-select" id="editDirection">
+                            <option value="in">In</option>
+                            <option value="out">Out</option>
+                            <option value="unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confidence</label>
+                        <input type="number" class="form-control" id="editConfidence" min="0" max="100" step="0.01" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveDetectionEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Image Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="d-flex gap-3 justify-content-center">
+                    <div>
+                        <h6 class="text-muted mb-2">Image 1</h6>
+                        <img id="previewImage1" class="img-thumbnail" 
+                             style="width: 300px; height: 225px; object-fit: cover;"
+                             onerror="this.src='/images/placeholder.jpg'">
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-2">Image 2</h6>
+                        <img id="previewImage2" class="img-thumbnail" 
+                             style="width: 300px; height: 225px; object-fit: cover;"
+                             onerror="this.src='/images/placeholder.jpg'">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function editDetection(id, vrm, direction, confidence) {
+    document.getElementById('editDetectionId').value = id;
+    document.getElementById('editVRM').value = vrm;
+    document.getElementById('editDirection').value = direction;
+    document.getElementById('editConfidence').value = confidence;
+    new bootstrap.Modal(document.getElementById('editDetectionModal')).show();
+}
+
+async function saveDetectionEdit() {
+    const id = document.getElementById('editDetectionId').value;
+    const vrm = document.getElementById('editVRM').value;
+    const direction = document.getElementById('editDirection').value;
+    const confidence = document.getElementById('editConfidence').value;
+
+    try {
+        const response = await fetch(`/api/detections/${id}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ vrm, direction, confidence })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            // Close the modal
+            bootstrap.Modal.getInstance(document.getElementById('editDetectionModal')).hide();
+            
+            // Update the table row
+            const row = document.querySelector(`tr[data-detection-id="${id}"]`);
+            if (row) {
+                row.querySelector('.vrm').textContent = vrm;
+                row.querySelector('.direction').textContent = direction;
+                row.querySelector('.confidence').textContent = confidence;
+            }
+            
+            // Show success message
+            alert('Detection updated successfully');
+        } else {
+            throw new Error(data.error || 'Failed to update detection');
+        }
+    } catch (error) {
+        console.error('Error updating detection:', error);
+        alert('Failed to update detection: ' + error.message);
+    }
+}
+
+function viewImage(detectionId) {
+    const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    const img1 = document.getElementById('previewImage1');
+    const img2 = document.getElementById('previewImage2');
+    
+    // Set image sources
+    img1.src = `/image/${detectionId}/1`;
+    img2.src = `/image/${detectionId}/2`;
+    
+    // Show modal
+    modal.show();
+}
+</script> 

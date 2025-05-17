@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PCN Automation Settings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f5f5; }
+        .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
+        h1 { font-size: 2rem; margin-bottom: 32px; }
+        .table th, .table td { vertical-align: middle; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>PCN Automation & Notification Settings</h1>
+    <table class="table table-bordered table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Car Park</th>
+                <th>Automation</th>
+                <th>Notify Emails</th>
+                <th>Grace Period (min)</th>
+                <th>Last Checked</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% carparks.forEach(cp => { %>
+            <tr>
+                <td><%= cp.name %> (<%= cp.siteId %>)</td>
+                <td><span class="badge <%= cp.isEnabled ? 'bg-success' : 'bg-secondary' %>"><%= cp.isEnabled ? 'Enabled' : 'Disabled' %></span></td>
+                <td><%= cp.notifyEmails || '' %></td>
+                <td><%= cp.gracePeriodMinutes || 0 %></td>
+                <td><%= cp.lastChecked ? new Date(cp.lastChecked).toLocaleString() : '-' %></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="showEditModal('<%= cp.siteId %>', '<%= cp.name %>', <%= cp.isEnabled ? 'true' : 'false' %>, '<%= cp.notifyEmails || '' %>', <%= cp.gracePeriodMinutes || 0 %>)">Edit</button>
+                </td>
+            </tr>
+            <% }); %>
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit PCN Automation Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="siteId" id="siteId">
+                    <div class="mb-3">
+                        <label class="form-label">Car Park</label>
+                        <input type="text" class="form-control" id="carParkName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Automation Enabled</label>
+                        <select class="form-select" name="isEnabled" id="isEnabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notification Emails (comma separated)</label>
+                        <input type="text" class="form-control" name="notifyEmails" id="notifyEmails">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Grace Period (minutes)</label>
+                        <input type="number" class="form-control" name="gracePeriodMinutes" id="gracePeriodMinutes" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function showEditModal(siteId, name, isEnabled, notifyEmails, grace) {
+    document.getElementById('siteId').value = siteId;
+    document.getElementById('carParkName').value = name + ' (' + siteId + ')';
+    document.getElementById('isEnabled').value = isEnabled;
+    document.getElementById('notifyEmails').value = notifyEmails;
+    document.getElementById('gracePeriodMinutes').value = grace;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+document.getElementById('editForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form).entries());
+    const resp = await fetch('/admin/pcn-automation/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+        location.reload();
+    } else {
+        alert('Error saving settings');
+    }
+};
+</script>
+</body>
+</html> 
