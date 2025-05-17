@@ -302,6 +302,12 @@ async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = fa
                         INSERT INTO parking_events 
                         (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
                         VALUES ${placeholders}
+                        ON DUPLICATE KEY UPDATE
+                            exitTime = VALUES(exitTime),
+                            durationMinutes = VALUES(durationMinutes),
+                            throughTraffic = VALUES(throughTraffic),
+                            exitDetectionId = VALUES(exitDetectionId),
+                            exitCameraId = VALUES(exitCameraId)
                     `;
                     
                     await conn.query(query, values.flat());
