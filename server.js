@@ -212,6 +212,13 @@ async function processBuffer(siteId, VRM, buffer, throughLimit, events, minEvent
     }
 }
 
+// Add this helper near the top of the file
+function safeToISOString(val, fallback) {
+    if (!val) return fallback;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? fallback : d.toISOString();
+}
+
 // Function to generate parking events
 async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = false) {
     console.log('[DEBUG] Starting event generation process...');
@@ -234,9 +241,8 @@ async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = fa
 
         // Process each car park sequentially
         for (const carPark of carParks) {
-            // Set default date range if not provided
-            const start = startDate ? new Date(startDate).toISOString() : '1970-01-01T00:00:00Z';
-            const end = endDate ? new Date(endDate).toISOString() : '2100-01-01T00:00:00Z';
+            const start = safeToISOString(startDate, '1970-01-01T00:00:00Z');
+            const end = safeToISOString(endDate, '2100-01-01T00:00:00Z');
             console.log(`[DEBUG] Using date range: ${start} to ${end}`);
             // Get unprocessed detections for this car park
             const detections = await getUnprocessedDetections(carPark.siteId, start, end);
