@@ -1,4 +1,5 @@
 const express = require('express');
+const { getCachedWhitelists } = require('../mondayWhitelistService');
 
 module.exports = function(pool) {
 const router = express.Router();
@@ -89,12 +90,15 @@ router.get('/carparks/:id', async (req, res) => {
     try {
         conn = await pool.getConnection();
         const siteId = req.params.id;
+        
         // Get car park info
         const [carpark] = await conn.query('SELECT * FROM carparks WHERE siteId = ?', [siteId]);
         if (!carpark) return res.status(404).render('error', { message: 'Car park not found' });
+        
         // Current occupancy: vehicles still parked
         const [currentOccupancyRow] = await conn.query('SELECT COUNT(*) as count FROM parking_events WHERE siteId = ? AND exitTime IS NULL', [siteId]);
         const currentOccupancy = currentOccupancyRow ? currentOccupancyRow.count : 0;
+        
         // Currently parked vehicles
         const currentVehicles = await conn.query(`
             SELECT VRM, entryTime, entryDetectionId as entryImage
@@ -102,6 +106,7 @@ router.get('/carparks/:id', async (req, res) => {
             WHERE siteId = ? AND exitTime IS NULL
             ORDER BY entryTime DESC
         `, [siteId]);
+        
         // Today's stats
         const [todayStats] = await conn.query(`
             SELECT 
@@ -113,6 +118,7 @@ router.get('/carparks/:id', async (req, res) => {
         `, [siteId]);
         todayStats.throughTraffic = todayStats.throughTraffic || 0;
         todayStats.avgDuration = todayStats.avgDuration || 0;
+        
         // Hourly distribution for today
         const hourlyRows = await conn.query(`
             SELECT HOUR(entryTime) as hour, COUNT(*) as count
@@ -122,50 +128,59 @@ router.get('/carparks/:id', async (req, res) => {
             ORDER BY hour
         `, [siteId]);
         const hourlyDistribution = Array.from({length: 24}, (_, h) => ({ hour: h, count: 0 }));
-        hourlyRows.forEach(row => { hourlyDistribution[row.hour].count = row.count; });
-        // Daily stats for last 7 days
-        const dailyRows = await conn.query(`
-            SELECT DAYNAME(entryTime) as day, AVG(durationMinutes) as avgDuration
-            FROM parking_events
-            WHERE siteId = ? AND exitTime IS NOT NULL AND entryTime >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY day
-        `, [siteId]);
-        const daysOfWeek = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        const dailyStats = daysOfWeek.map(day => {
-            const found = dailyRows.find(r => r.day === day);
-            return { day, avgDuration: found ? found.avgDuration : 0 };
+        hourlyRows.forEach(row => {
+            hourlyDistribution[row.hour] = row;
         });
-        // Get recent parking events for this car park (last 20), with PCN count using LEFT JOIN
+        
+        // Daily stats (average duration by day of week)
+        const dailyStats = await conn.query(`
+            SELECT 
+                DAYNAME(entryTime) as day,
+                AVG(durationMinutes) as avgDuration
+            FROM parking_events
+            WHERE siteId = ? 
+            AND exitTime IS NOT NULL
+            AND entryTime >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY DAYNAME(entryTime)
+            ORDER BY FIELD(DAYNAME(entryTime), 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+        `, [siteId]);
+        
+        // Recent events (last 20)
         const recentEvents = await conn.query(`
             SELECT 
-                e.id, 
-                e.VRM as vrm, 
-                e.entryTime, 
-                e.exitTime, 
-                e.durationMinutes,
-                COUNT(p.id) as pcnCount
-            FROM parking_events e
-            LEFT JOIN pcns p ON p.eventId = e.id
-            WHERE e.siteId = ?
-            GROUP BY e.id, e.VRM, e.entryTime, e.exitTime, e.durationMinutes
-            ORDER BY e.entryTime DESC
+                id,
+                VRM,
+                entryTime,
+                exitTime,
+                durationMinutes,
+                throughTraffic
+            FROM parking_events
+            WHERE siteId = ?
+            ORDER BY entryTime DESC
             LIMIT 20
         `, [siteId]);
-        console.log('Recent Events:', recentEvents);
-        // Monthly stats for last 6 months
+        
+        // Monthly stats
         const monthlyRows = await conn.query(`
-            SELECT DATE_FORMAT(entryTime, '%Y-%m') as month, COUNT(*) as totalVehicles, SUM(throughTraffic) as throughTraffic, AVG(durationMinutes) as avgDuration
+            SELECT 
+                DATE_FORMAT(entryTime, '%Y-%m') as month,
+                COUNT(*) as totalVehicles,
+                SUM(throughTraffic) as throughTraffic,
+                AVG(durationMinutes) as avgDuration
             FROM parking_events
-            WHERE siteId = ? AND exitTime IS NOT NULL AND entryTime >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-            GROUP BY month
-            ORDER BY month DESC
+            WHERE siteId = ?
+            AND entryTime >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(entryTime, '%Y-%m')
+            ORDER BY month
         `, [siteId]);
+        
         const monthlyStats = monthlyRows.map(row => ({
             month: row.month,
             totalVehicles: row.totalVehicles,
             throughTraffic: row.throughTraffic || 0,
             avgDuration: row.avgDuration || 0
         }));
+        
         res.render('admin/carpark_dashboard', {
             carpark,
             currentOccupancy,
@@ -179,6 +194,49 @@ router.get('/carparks/:id', async (req, res) => {
     } catch (err) {
         console.error('Error loading car park dashboard:', err);
         res.status(500).render('error', { message: 'Error loading car park dashboard' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Event details API endpoint
+router.get('/api/events/:id', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const [event] = await conn.query(`
+            SELECT 
+                e.*,
+                ec.name as entryCamera,
+                xc.name as exitCamera,
+                ed.image1 as entryImage,
+                ed.direction as entryDirection,
+                ed.confidence as entryConfidence,
+                ed.tag as entryTag,
+                ed.tagConfidence as entryTagConfidence,
+                ed.country as entryCountry,
+                xd.image1 as exitImage,
+                xd.direction as exitDirection,
+                xd.confidence as exitConfidence,
+                xd.tag as exitTag,
+                xd.tagConfidence as exitTagConfidence,
+                xd.country as exitCountry
+            FROM parking_events e
+            LEFT JOIN cameras ec ON e.entryCameraId = ec.name
+            LEFT JOIN cameras xc ON e.exitCameraId = xc.name
+            LEFT JOIN anpr_detections ed ON e.entryDetectionId = ed.id
+            LEFT JOIN anpr_detections xd ON e.exitDetectionId = xd.id
+            WHERE e.id = ?
+        `, [req.params.id]);
+        
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        res.json(event);
+    } catch (err) {
+        console.error('Error fetching event details:', err);
+        res.status(500).json({ error: 'Error fetching event details' });
     } finally {
         if (conn) conn.release();
     }
@@ -344,6 +402,12 @@ router.post('/admin/carparks/edit', async (req, res) => {
     } finally {
         if (conn) conn.release();
     }
+});
+
+// Admin UI to view current whitelists
+router.get('/whitelists', (req, res) => {
+  const whitelists = getCachedWhitelists();
+  res.render('admin/whitelists', { whitelists });
 });
 
 return router;

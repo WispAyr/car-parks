@@ -12,6 +12,12 @@
                     </a>
                 </div>
                 <div class="card-body">
+                    <!-- Split Event Button -->
+                    <div class="mb-3">
+                        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#splitEventModal">
+                            Split Event
+                        </button>
+                    </div>
                     <!-- Basic Event Information -->
                     <div class="row mb-4">
                         <div class="col-md-6">
@@ -290,7 +296,7 @@
                         <div class="col-12">
                             <h6 class="mb-3">All Detections for <%= event.VRM %> at <%= event.carparkName %></h6>
                             <div class="table-responsive">
-                                <table class="table table-sm">
+                                <table class="table table-sm table-hover">
                                     <thead>
                                         <tr>
                                             <th>Timestamp</th>
@@ -301,11 +307,12 @@
                                             <th>Tag Confidence</th>
                                             <th>Country</th>
                                             <th>Images</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <% relatedDetections.forEach(det => { %>
-                                            <tr>
+                                            <tr class="detection-row" data-detection-id="<%= det.id %>" style="cursor: pointer;">
                                                 <td><%= new Date(det.timestamp).toLocaleString() %></td>
                                                 <td><%= det.cameraID %></td>
                                                 <td><%= det.direction %></td>
@@ -319,15 +326,20 @@
                                                              alt="Image 1" 
                                                              class="img-thumbnail" 
                                                              style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                             onclick="viewImage('<%= det.id %>', 1)"
+                                                             onclick="viewImage('<%= det.id %>', 1); event.stopPropagation();"
                                                              onerror="this.src='/images/placeholder.jpg'">
                                                         <img src="/image/<%= det.id %>/2" 
                                                              alt="Image 2" 
                                                              class="img-thumbnail" 
                                                              style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                             onclick="viewImage('<%= det.id %>', 2)"
+                                                             onclick="viewImage('<%= det.id %>', 2); event.stopPropagation();"
                                                              onerror="this.src='/images/placeholder.jpg'">
                                                     </div>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary" onclick="viewDetectionDetails('<%= det.id %>'); event.stopPropagation();">
+                                                        Details
+                                                    </button>
                                                 </td>
                                             </tr>
                                         <% }); %>
@@ -337,6 +349,50 @@
                         </div>
                     </div>
                     <% } %>
+
+                    <!-- Event Status -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <h2>Event Details</h2>
+                            <span>
+                                <% if (event.status === 'whitelisted') { %>
+                                    <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
+                                <% } else if (event.status === 'paid') { %>
+                                    <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
+                                <% } else if (event.status === 'unpaid') { %>
+                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
+                                <% } else { %>
+                                    <span class="badge bg-secondary">-</span>
+                                <% } %>
+                            </span>
+                            <div class="mt-2">
+                                <strong>Whitelist Checked:</strong> <%= event.whitelistCheckedAt ? new Date(event.whitelistCheckedAt).toLocaleString() : 'Never' %><br>
+                                <strong>Payment Checked:</strong> <%= event.paymentCheckedAt ? new Date(event.paymentCheckedAt).toLocaleString() : 'Never' %>
+                            </div>
+                            <% if (event.status === 'whitelisted' && event.whitelistMatch) { %>
+                                <div class="alert alert-success mt-2">
+                                    <strong>Whitelist Match:</strong><br>
+                                    VRM: <%= event.whitelistMatch.vrm %><br>
+                                    Car Park: <%= event.whitelistMatch.siteId %><br>
+                                    Start: <%= event.whitelistMatch.startDate ? new Date(event.whitelistMatch.startDate).toLocaleDateString() : 'N/A' %><br>
+                                    End: <%= event.whitelistMatch.endDate ? new Date(event.whitelistMatch.endDate).toLocaleDateString() : 'Indefinite' %>
+                                </div>
+                            <% } else if (event.status === 'paid' && event.payment) { %>
+                                <div class="alert alert-primary mt-2">
+                                    <strong>Payment Details:</strong>
+                                    <table class="table table-sm mt-2">
+                                        <tr><th>Amount</th><td>£<%= event.payment.amount.toFixed(2) %></td></tr>
+                                        <tr><th>Reference</th><td><%= event.payment.reference %></td></tr>
+                                        <tr><th>Paid At</th><td><%= new Date(event.payment.paidAt).toLocaleString() %></td></tr>
+                                    </table>
+                                </div>
+                            <% } else if (event.status === 'unpaid') { %>
+                                <div class="alert alert-danger mt-2">No valid payment or whitelist found for this event.</div>
+                                <button class="btn btn-outline-success mt-2" disabled>Record Payment</button>
+                            <% } %>
+                            <button class="btn btn-outline-info mt-2" id="recheckStatusBtn"><i class="bi bi-arrow-repeat"></i> Re-check Status</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -358,10 +414,170 @@
     </div>
 </div>
 
+<!-- Detection Details Modal -->
+<div class="modal fade" id="detectionDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detection Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Detection Information</h6>
+                        <table class="table table-sm" id="detectionInfoTable">
+                            <!-- Will be populated by JavaScript -->
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Images</h6>
+                        <div class="d-flex gap-3">
+                            <div>
+                                <h6 class="text-muted mb-2">Image 1</h6>
+                                <img id="modalImage1" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage(currentDetectionId, 1)">
+                            </div>
+                            <div>
+                                <h6 class="text-muted mb-2">Image 2</h6>
+                                <img id="modalImage2" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage(currentDetectionId, 2)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Split Event Modal -->
+<div class="modal fade" id="splitEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Split Event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select the detection after which to split this event. All detections after the selected one will form a new event.</p>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Camera</th>
+                            <th>Direction</th>
+                            <th>Confidence</th>
+                            <th>Tag</th>
+                            <th>Country</th>
+                            <th>Select Split</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% relatedDetections.forEach((det, idx) => { %>
+                            <tr>
+                                <td><%= new Date(det.timestamp).toLocaleString() %></td>
+                                <td><%= det.cameraID %></td>
+                                <td><%= det.direction %></td>
+                                <td><%= det.confidence %></td>
+                                <td><%= det.tag || '-' %></td>
+                                <td><%= det.country || '-' %></td>
+                                <td>
+                                    <% if (idx < relatedDetections.length - 1) { %>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="splitEventAt('<%= event.id %>', '<%= det.id %>')">Split Here</button>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let currentDetectionId = null;
+
+// Add click handler to detection rows
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.detection-row').forEach(row => {
+        row.addEventListener('click', function() {
+            const detectionId = this.dataset.detectionId;
+            viewDetectionDetails(detectionId);
+        });
+    });
+});
+
+function viewDetectionDetails(detectionId) {
+    currentDetectionId = detectionId;
+    
+    // Fetch detection details
+    fetch(`/api/detection/${detectionId}`)
+        .then(response => response.json())
+        .then(detection => {
+            // Update modal content
+            const table = document.getElementById('detectionInfoTable');
+            table.innerHTML = `
+                <tr><th>ID</th><td>${detection.id}</td></tr>
+                <tr><th>Timestamp</th><td>${new Date(detection.timestamp).toLocaleString()}</td></tr>
+                <tr><th>Camera</th><td>${detection.cameraID}</td></tr>
+                <tr><th>Direction</th><td>${detection.direction || '-'}</td></tr>
+                <tr><th>Confidence</th><td>${detection.confidence}%</td></tr>
+                <tr><th>Tag</th><td>${detection.tag || '-'}</td></tr>
+                <tr><th>Tag Confidence</th><td>${detection.tagConfidence ? detection.tagConfidence + '%' : '-'}</td></tr>
+                <tr><th>Country</th><td>${detection.country || '-'}</td></tr>
+                <tr><th>Processed</th><td>${detection.processed ? 'Yes' : 'No'}</td></tr>
+                <tr><th>Processed At</th><td>${detection.processed_at ? new Date(detection.processed_at).toLocaleString() : '-'}</td></tr>
+            `;
+            
+            // Update images
+            document.getElementById('modalImage1').src = `/image/${detectionId}/1`;
+            document.getElementById('modalImage2').src = `/image/${detectionId}/2`;
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('detectionDetailsModal')).show();
+        })
+        .catch(error => {
+            console.error('Error fetching detection details:', error);
+            alert('Error loading detection details');
+        });
+}
+
 function viewImage(detectionId, imageType) {
     const img = document.getElementById('previewImage');
     img.src = `/image/${detectionId}/${imageType}`;
     new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
 }
+
+function splitEventAt(eventId, detectionId) {
+    if (!confirm('Are you sure you want to split this event at the selected detection?')) return;
+    fetch(`/api/events/${eventId}/split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ splitDetectionId: detectionId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Event split successfully!');
+            window.location.reload();
+        } else {
+            alert('Error splitting event: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        alert('Error splitting event: ' + err);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('recheckStatusBtn');
+    if (btn) {
+        btn.onclick = async function() {
+            const eventId = '<%= event.id %>';
+            const res = await fetch(`/admin/events/${eventId}/finalize`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to re-check status');
+        };
+    }
+});
 </script> 

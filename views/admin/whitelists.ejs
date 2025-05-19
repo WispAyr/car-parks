@@ -1,0 +1,34 @@
+<div class="container mt-4">
+  <a href="/admin" class="btn btn-secondary mb-3">Back to Admin</a>
+  <h1>Current Whitelists</h1>
+  <% if (Object.keys(whitelists).length === 0) { %>
+    <div class="alert alert-warning">No whitelist data loaded.</div>
+  <% } %>
+  <% Object.keys(whitelists).forEach(siteId => { %>
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Car Park: <%= siteId %></h5>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>VRM</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% whitelists[siteId].forEach(entry => { %>
+              <tr>
+                <td><%= entry.vrm %></td>
+                <td><%= entry.startDate ? entry.startDate.toLocaleDateString() : 'N/A' %></td>
+                <td><%= entry.endDate ? entry.endDate.toLocaleDateString() : 'Indefinite' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% }) %>
+</div> 

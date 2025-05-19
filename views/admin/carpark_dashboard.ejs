@@ -60,6 +60,16 @@
             <a href="/admin/carparks" class="btn btn-secondary">Back to Car Parks</a>
         </div>
 
+        <!-- Add this legend and tooltips above the stats cards -->
+        <div class="row mb-3">
+            <div class="col-12 d-flex align-items-center gap-3">
+                <span><i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip" title="Current number of vehicles parked (no exit detected)"></i> <strong>Current Occupancy</strong></span>
+                <span><i class="bi bi-info-circle text-success" data-bs-toggle="tooltip" title="Completed events today (vehicles that entered and exited)"></i> <strong>Today's Stats</strong></span>
+                <span><i class="bi bi-info-circle text-info" data-bs-toggle="tooltip" title="Quick monthly stats summary"></i> <strong>Quick Stats</strong></span>
+                <span><i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" title="'Through Traffic' means vehicles that stayed less than the 'Through Traffic Minutes' threshold and did not park."></i> <strong>Through Traffic</strong></span>
+            </div>
+        </div>
+
         <!-- Stats Cards Row -->
         <div class="row mb-4">
             <div class="col-md-4">
@@ -157,6 +167,17 @@
                             <canvas id="monthlyChart"></canvas>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add a legend for chart colors below the charts -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex gap-4 align-items-center justify-content-center">
+                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(54,162,235,0.5);margin-right:6px;border-radius:3px;"></span> Vehicles</span>
+                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(255,99,132,0.5);margin-right:6px;border-radius:3px;"></span> Through Traffic</span>
+                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(75,192,192,0.5);margin-right:6px;border-radius:3px;"></span> Avg Duration</span>
                 </div>
             </div>
         </div>
@@ -364,23 +385,36 @@
                     <div class="row">
                         <div class="col-md-6">
                             <h6>Entry Details</h6>
-                            <div id="entryDetails">
-                                <!-- Filled dynamically -->
-                            </div>
+                            <table class="table table-sm">
+                                <tr><th>Time</th><td id="entryTime"></td></tr>
+                                <tr><th>VRM</th><td id="entryVRM"></td></tr>
+                                <tr><th>Camera</th><td id="entryCamera"></td></tr>
+                                <tr><th>Direction</th><td id="entryDirection"></td></tr>
+                                <tr><th>Confidence</th><td id="entryConfidence"></td></tr>
+                                <tr><th>Tag</th><td id="entryTag"></td></tr>
+                                <tr><th>Tag Confidence</th><td id="entryTagConfidence"></td></tr>
+                                <tr><th>Country</th><td id="entryCountry"></td></tr>
+                            </table>
                         </div>
                         <div class="col-md-6">
                             <h6>Exit Details</h6>
-                            <div id="exitDetails">
-                                <!-- Filled dynamically -->
-                            </div>
+                            <table class="table table-sm">
+                                <tr><th>Time</th><td id="exitTime"></td></tr>
+                                <tr><th>VRM</th><td id="exitVRM"></td></tr>
+                                <tr><th>Camera</th><td id="exitCamera"></td></tr>
+                                <tr><th>Direction</th><td id="exitDirection"></td></tr>
+                                <tr><th>Confidence</th><td id="exitConfidence"></td></tr>
+                                <tr><th>Tag</th><td id="exitTag"></td></tr>
+                                <tr><th>Tag Confidence</th><td id="exitTagConfidence"></td></tr>
+                                <tr><th>Country</th><td id="exitCountry"></td></tr>
+                                <tr><th>Duration</th><td id="exitDuration"></td></tr>
+                            </table>
                         </div>
                     </div>
                     <div class="row mt-3">
                         <div class="col-12">
                             <h6>Images</h6>
-                            <div class="row" id="eventImages">
-                                <!-- Filled dynamically -->
-                            </div>
+                            <div class="row" id="eventImages"></div>
                         </div>
                     </div>
                 </div>
@@ -580,42 +614,34 @@
             try {
                 const response = await fetch(`/api/events/${eventId}`);
                 const event = await response.json();
-                
-                // Populate entry details
-                document.getElementById('entryDetails').innerHTML = `
-                    <p><strong>Time:</strong> ${new Date(event.entryTime).toLocaleString()}</p>
-                    <p><strong>VRM:</strong> ${event.VRM}</p>
-                    <p><strong>Camera:</strong> ${event.entryCamera || 'N/A'}</p>
-                `;
-
-                // Populate exit details
-                document.getElementById('exitDetails').innerHTML = event.exitTime ? `
-                    <p><strong>Time:</strong> ${new Date(event.exitTime).toLocaleString()}</p>
-                    <p><strong>VRM:</strong> ${event.VRM}</p>
-                    <p><strong>Camera:</strong> ${event.exitCamera || 'N/A'}</p>
-                    <p><strong>Duration:</strong> ${event.durationMinutes ? event.durationMinutes.toFixed(2) : 'N/A'} minutes</p>
-                ` : '<p class="text-muted">Still parked</p>';
-
-                // Populate images
-                const imagesHtml = [];
+                // Entry details
+                document.getElementById('entryTime').textContent = event.entryTime ? new Date(event.entryTime).toLocaleString() : '-';
+                document.getElementById('entryVRM').textContent = event.VRM || '-';
+                document.getElementById('entryCamera').textContent = event.entryCamera || '-';
+                document.getElementById('entryDirection').textContent = event.entryDirection || '-';
+                document.getElementById('entryConfidence').textContent = event.entryConfidence !== undefined ? event.entryConfidence + '%' : '-';
+                document.getElementById('entryTag').textContent = event.entryTag || '-';
+                document.getElementById('entryTagConfidence').textContent = event.entryTagConfidence !== undefined ? event.entryTagConfidence + '%' : '-';
+                document.getElementById('entryCountry').textContent = event.entryCountry || '-';
+                // Exit details
+                document.getElementById('exitTime').textContent = event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still parked';
+                document.getElementById('exitVRM').textContent = event.VRM || '-';
+                document.getElementById('exitCamera').textContent = event.exitCamera || '-';
+                document.getElementById('exitDirection').textContent = event.exitDirection || '-';
+                document.getElementById('exitConfidence').textContent = event.exitConfidence !== undefined ? event.exitConfidence + '%' : '-';
+                document.getElementById('exitTag').textContent = event.exitTag || '-';
+                document.getElementById('exitTagConfidence').textContent = event.exitTagConfidence !== undefined ? event.exitTagConfidence + '%' : '-';
+                document.getElementById('exitCountry').textContent = event.exitCountry || '-';
+                document.getElementById('exitDuration').textContent = event.durationMinutes ? event.durationMinutes.toFixed(2) + ' min' : '-';
+                // Images
+                var imagesHtml = [];
                 if (event.entryImage) {
-                    imagesHtml.push(`
-                        <div class="col-md-6 mb-3">
-                            <h6>Entry Image</h6>
-                            <img src="${event.entryImage}" class="event-image" onclick="showFullImage(this.src)">
-                        </div>
-                    `);
+                    imagesHtml.push('<div class="col-md-6 mb-3"><h6>Entry Image</h6><img src="/image/' + event.entryDetectionId + '/1" class="event-image" onclick="showFullImage(this.src)"></div>');
                 }
                 if (event.exitImage) {
-                    imagesHtml.push(`
-                        <div class="col-md-6 mb-3">
-                            <h6>Exit Image</h6>
-                            <img src="${event.exitImage}" class="event-image" onclick="showFullImage(this.src)">
-                        </div>
-                    `);
+                    imagesHtml.push('<div class="col-md-6 mb-3"><h6>Exit Image</h6><img src="/image/' + event.exitDetectionId + '/1" class="event-image" onclick="showFullImage(this.src)"></div>');
                 }
                 document.getElementById('eventImages').innerHTML = imagesHtml.join('');
-
                 const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
                 modal.show();
             } catch (error) {
@@ -703,6 +729,12 @@
 
             $('#activeFilters').html(filters.join(''));
         }
+
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
     </script>
 </body>
 </html> 

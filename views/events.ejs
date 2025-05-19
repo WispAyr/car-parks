@@ -49,9 +49,45 @@
             background: #6366f1;
             color: #fff;
         }
-        .filter {
-            text-align: center;
-            margin-bottom: 24px;
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            background: #f8fafc;
+            border: 1.5px solid #e0e7ff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.04);
+            padding: 18px 18px 10px 18px;
+            margin: 0 auto 24px auto;
+            max-width: 1200px;
+        }
+        .filter-bar label {
+            margin-right: 6px;
+            font-weight: 500;
+        }
+        .filter-bar select, .filter-bar button {
+            min-width: 120px;
+            border-radius: 6px;
+            border: 1px solid #c7d2fe;
+            padding: 6px 12px;
+            font-size: 1em;
+        }
+        .timezone-btn {
+            margin-left: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #6366f1;
+            background: #fff;
+            color: #6366f1;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .timezone-btn:hover {
+            background: #6366f1;
+            color: #fff;
         }
         .events-table {
             width: 96vw;
@@ -83,36 +119,37 @@
             font-size: 0.95em;
             font-weight: 600;
         }
+        .badge {
+            border-radius: 2em !important;
+            font-size: 1em;
+            padding: 0.45em 1.2em;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+        .image-cell {
+            background: #f8fafc;
+            text-align: center;
+            vertical-align: middle;
+        }
         .thumbnail {
-            width: 60px;
-            height: 60px;
+            width: 56px;
+            height: 56px;
             object-fit: cover;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: transform 0.2s;
+            border-radius: 6px;
+            border: 1.5px solid #e0e7ff;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.08);
+            transition: transform 0.18s, box-shadow 0.18s;
         }
         .thumbnail:hover {
-            transform: scale(1.1);
+            transform: scale(1.12);
+            box-shadow: 0 4px 16px rgba(99,102,241,0.18);
+            z-index: 2;
         }
-        @media (max-width: 700px) {
-            .events-table, .events-table th, .events-table td {
-                font-size: 13px;
-            }
-        }
-        .timezone-btn {
-            margin-left: 16px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid #6366f1;
-            background: #fff;
-            color: #6366f1;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .timezone-btn:hover {
-            background: #6366f1;
-            color: #fff;
+        @media (max-width: 900px) {
+            .filter-bar { flex-direction: column; gap: 10px; padding: 12px 6px; }
+            .events-table, .events-table th, .events-table td { font-size: 13px; }
         }
     </style>
 </head>
@@ -133,23 +170,28 @@
             <%= message %>
         </div>
     <% } %>
-    <div class="filter">
-        <label for="siteSelect"><strong>Car Park:</strong></label>
-        <select id="siteSelect" class="form-select" style="display: inline-block; width: auto;">
+    <div class="filter-bar">
+        <label for="siteSelect">Car Park:</label>
+        <select id="siteSelect" class="form-select" style="width: auto; display: inline-block;">
             <option value="">All</option>
             <% carparks.forEach(cp => { %>
                 <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>><%= cp.name %></option>
             <% }) %>
         </select>
-        <div class="filter-group" style="display: inline-block; margin-left: 20px;">
-            <label for="eventType"><strong>Event Type:</strong></label>
-            <select id="eventType" class="form-select" style="display: inline-block; width: auto;">
-                <option value="all">All Events</option>
-                <option value="completed">Completed Only</option>
-                <option value="parked">Currently Parked</option>
-                <option value="through">Through Traffic</option>
-            </select>
-        </div>
+        <label for="eventType">Event Type:</label>
+        <select id="eventType" class="form-select" style="width: auto; display: inline-block;">
+            <option value="all">All Events</option>
+            <option value="completed">Completed Only</option>
+            <option value="parked">Currently Parked</option>
+            <option value="through">Through Traffic</option>
+        </select>
+        <label for="statusFilter">Status:</label>
+        <select id="statusFilter" class="form-select" style="width: auto; display: inline-block;">
+            <option value="">All</option>
+            <option value="whitelisted">Whitelisted</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+        </select>
         <button id="timezoneToggle" class="timezone-btn" onclick="toggleTimezone()">
             Switch to GMT
         </button>
@@ -163,9 +205,12 @@
                     <th>Entry Time</th>
                     <th>Exit Time</th>
                     <th>Duration</th>
+                    <th>Status</th>
                     <th>Type</th>
                     <th>Entry Camera</th>
                     <th>Exit Camera</th>
+                    <th>Entry Image</th>
+                    <th>Exit Image</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -185,29 +230,48 @@
                             <%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %>
                         </td>
                         <td>
-                            <% if (!event.exitTime) { %>
-                                <span class="badge bg-warning">Currently Parked</span>
-                            <% } else if (event.throughTraffic) { %>
-                                <span class="badge bg-info">Through Traffic</span>
+                            <% if (event.status === 'whitelisted') { %>
+                                <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
+                            <% } else if (event.status === 'paid') { %>
+                                <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
+                            <% } else if (event.status === 'unpaid') { %>
+                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
                             <% } else { %>
-                                <span class="badge bg-success">Completed</span>
+                                <span class="badge bg-secondary">-</span>
                             <% } %>
                         </td>
-                        <td><%= event.entryCameraId %></td>
-                        <td><%= event.exitCameraId || '-' %></td>
                         <td>
-                            <div class="action-buttons">
-                                <% if (event.hasEntryImage1 || event.hasEntryImage2) { %>
-                                    <button onclick="showImages('<%= event.entryDetectionId %>', 'entry')" class="btn btn-sm btn-primary">
-                                        Entry Images
-                                    </button>
-                                <% } %>
-                                <% if (event.hasExitImage1 || event.hasExitImage2) { %>
-                                    <button onclick="showImages('<%= event.exitDetectionId %>', 'exit')" class="btn btn-sm btn-primary">
-                                        Exit Images
-                                    </button>
-                                <% } %>
-                            </div>
+                            <% if (event.entryCameraName) { %>
+                                <i class="fa fa-video" title="Entry Camera"></i>
+                                <span title="<%= event.entryCameraName %>"><%= event.entryCameraName %></span>
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <% if (event.exitCameraName) { %>
+                                <i class="fa fa-video" title="Exit Camera"></i>
+                                <span title="<%= event.exitCameraName %>"><%= event.exitCameraName %></span>
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                        <td class="image-cell">
+                            <% if (event.entryDetectionId && event.hasEntryImage1) { %>
+                                <img src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image" class="thumbnail" onerror="this.src='/images/placeholder.jpg'" onclick="showImageModal('/image/<%= event.entryDetectionId %>/1')">
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                        <td class="image-cell">
+                            <% if (event.exitDetectionId && event.hasExitImage1) { %>
+                                <img src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image" class="thumbnail" onerror="this.src='/images/placeholder.jpg'" onclick="showImageModal('/image/<%= event.exitDetectionId %>/1')">
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <a href="/events/<%= event.id %>" class="btn btn-sm btn-outline-primary">Details</a>
                         </td>
                     </tr>
                 <% }) %>
@@ -274,10 +338,25 @@
                     }
                 });
             };
+
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                var value = this.value;
+                document.querySelectorAll('tr.event-row').forEach(function(row) {
+                    var status = row.querySelector('td:nth-child(6) .badge').textContent.trim().toLowerCase();
+                    if (!value || status === value) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
         });
 
-        function showImages(detectionId, type) {
-            window.open(`/detection-images/${detectionId}?type=${type}`, '_blank');
+        function showImageModal(imageUrl) {
+            const img = document.getElementById('previewImage');
+            img.src = imageUrl;
+            const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+            modal.show();
         }
     </script>
 </body>

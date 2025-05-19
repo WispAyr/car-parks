@@ -2,6 +2,7 @@
 
 // Import dependencies
 require('dotenv').config();
+const pool = require('./dbPool');
 
 // --- Helper functions (copy from server.js) ---
 function normalizeVRM(vrm) {
@@ -24,10 +25,31 @@ function fuzzyVRMMatch(vrm1, vrm2) {
     return vrm1Fixed === vrm2Fixed;
 }
 function isLikelyThroughTraffic(detection, previousDetections) {
+    // Look for detections within the last 5 minutes
     const recentDetections = previousDetections.filter(d =>
         Math.abs(new Date(d.timestamp) - new Date(detection.timestamp)) < 300000
     );
-    return recentDetections.length > 1;
+    
+    // If we have multiple detections of the same VRM within 5 minutes, it's likely through traffic
+    if (recentDetections.length > 1) {
+        return true;
+    }
+    
+    // Also check if this detection is part of a sequence of detections
+    const sortedDetections = [...recentDetections, detection].sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+    );
+    
+    // If we have at least 2 detections and they're close together, it's likely through traffic
+    if (sortedDetections.length >= 2) {
+        const timeDiff = Math.abs(
+            new Date(sortedDetections[sortedDetections.length - 1].timestamp) - 
+            new Date(sortedDetections[0].timestamp)
+        );
+        return timeDiff < 300000; // 5 minutes
+    }
+    
+    return false;
 }
 function safeToISOString(val, fallback) {
     if (!val) return fallback;
@@ -37,92 +59,91 @@ function safeToISOString(val, fallback) {
 
 // --- processBuffer (copy from server.js) ---
 async function processBuffer(siteId, VRM, buffer, throughLimit, minEventDuration, entriesByVRM) {
+    // Filter out detections with unknown direction or invalid VRM
+    buffer = buffer.filter(d => {
+        const normalizedVRM = normalizeVRM(d.VRM);
+        return d.direction && 
+               d.direction !== 'unknown' && 
+               isValidVRM(normalizedVRM);
+    });
+    
     buffer.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    console.log(`[EVENT GEN] Buffer for VRM=${VRM}:`);
+    buffer.forEach(d => {
+        console.log(`  id=${d.id}, ts=${d.timestamp}, cam=${d.cameraID}, direction=${d.direction}, VRM=${d.VRM}`);
+    });
+
+    // Group detections by direction
+    const entryDetections = buffer.filter(d => d.direction === 'in' || d.direction === 'towards');
+    const exitDetections = buffer.filter(d => d.direction === 'out' || d.direction === 'away');
+    
     const events = [];
-    let i = 0;
-    while (i < buffer.length) {
-        const entry = buffer[i];
-        if (!isValidVRM(VRM)) { i++; continue; }
-        if (isLikelyThroughTraffic(entry, buffer)) { i++; continue; }
-        let exit = null;
-        let j = i + 1;
-        while (j < buffer.length) {
-            const potentialExit = buffer[j];
-            if (fuzzyVRMMatch(VRM, potentialExit.VRM)) {
-                const duration = (new Date(potentialExit.timestamp) - new Date(entry.timestamp)) / (1000 * 60);
-                if (duration >= minEventDuration) {
-                    exit = potentialExit;
-                    break;
-                }
-            }
-            j++;
-        }
-        if (exit) {
-            const entryTime = new Date(entry.timestamp);
-            const exitTime = new Date(exit.timestamp);
-            const duration = (exitTime - entryTime) / (1000 * 60);
-            const isThroughTraffic = duration <= throughLimit;
-            if (duration < minEventDuration) { i = j + 1; continue; }
+    
+    // If we have both entry and exit detections
+    if (entryDetections.length > 0 && exitDetections.length > 0) {
+        // Use first entry and last exit
+        const firstEntry = entryDetections[0];
+        const lastExit = exitDetections[exitDetections.length - 1];
+        
+        const entryTime = new Date(firstEntry.timestamp);
+        const exitTime = new Date(lastExit.timestamp);
+        const duration = (exitTime - entryTime) / (1000 * 60); // duration in minutes
+        
+        // Only create event if exit is after entry
+        if (exitTime > entryTime) {
+            console.log(`[EVENT GEN] Creating event: VRM=${VRM}, entryId=${firstEntry.id}, exitId=${lastExit.id}, entryTime=${firstEntry.timestamp}, exitTime=${lastExit.timestamp}, duration=${duration}`);
+            
             events.push({
                 siteId: siteId,
                 VRM: VRM,
-                entryTime: entry.timestamp,
-                exitTime: exit.timestamp,
+                entryTime: firstEntry.timestamp,
+                exitTime: lastExit.timestamp,
                 durationMinutes: Math.round(duration * 10) / 10,
-                throughTraffic: isThroughTraffic,
-                entryDetectionId: entry.detectionId,
-                exitDetectionId: exit.detectionId,
-                entryCameraId: entry.cameraID,
-                exitCameraId: exit.cameraID
+                throughTraffic: duration <= throughLimit,
+                entryDetectionId: firstEntry.id,
+                exitDetectionId: lastExit.id,
+                entryCameraId: firstEntry.cameraID,
+                exitCameraId: lastExit.cameraID
             });
-            i = j + 1;
-        } else if (entry.isEntry) {
-            events.push({
-                siteId: siteId,
-                VRM: VRM,
-                entryTime: entry.timestamp,
-                exitTime: null,
-                durationMinutes: null,
-                throughTraffic: false,
-                entryDetectionId: entry.detectionId,
-                exitDetectionId: null,
-                entryCameraId: entry.cameraID,
-                exitCameraId: null
-            });
-            i++;
         } else {
-            const exitTime = new Date(entry.timestamp);
-            let foundEntry = null;
-            const lookbackMins = 30;
-            const lookbackStart = new Date(exitTime.getTime() - lookbackMins * 60 * 1000);
-            const possibleEntries = (entriesByVRM[normalizeVRM(VRM)] || []).filter(det => {
-                const ts = new Date(det.timestamp);
-                return ts >= lookbackStart && ts <= exitTime;
-            });
-            for (const det of possibleEntries) {
-                if (fuzzyVRMMatch(VRM, det.VRM)) {
-                    foundEntry = det;
-                    break;
-                }
-            }
-            if (foundEntry) {
-                const duration = (exitTime - new Date(foundEntry.timestamp)) / (1000 * 60);
-                events.push({
-                    siteId: siteId,
-                    VRM: VRM,
-                    entryTime: foundEntry.timestamp,
-                    exitTime: entry.timestamp,
-                    durationMinutes: Math.round(duration * 10) / 10,
-                    throughTraffic: duration <= throughLimit,
-                    entryDetectionId: foundEntry.detectionId || foundEntry.id,
-                    exitDetectionId: entry.detectionId,
-                    entryCameraId: foundEntry.cameraID,
-                    exitCameraId: entry.cameraID
-                });
-            }
-            i++;
+            console.log(`[EVENT GEN] Invalid event (exit before entry): VRM=${VRM}, entryId=${firstEntry.id}, exitId=${lastExit.id}`);
         }
+    } else if (entryDetections.length > 0) {
+        // Only entry detections - create open event
+        const firstEntry = entryDetections[0];
+        console.log(`[EVENT GEN] Open event (entry only): VRM=${VRM}, entryId=${firstEntry.id}, time=${firstEntry.timestamp}`);
+        
+        events.push({
+            siteId: siteId,
+            VRM: VRM,
+            entryTime: firstEntry.timestamp,
+            exitTime: null,
+            durationMinutes: null,
+            throughTraffic: false,
+            entryDetectionId: firstEntry.id,
+            exitDetectionId: null,
+            entryCameraId: firstEntry.cameraID,
+            exitCameraId: null
+        });
+    } else if (exitDetections.length > 0) {
+        // Only exit detections - create exit-only event
+        const lastExit = exitDetections[exitDetections.length - 1];
+        console.log(`[EVENT GEN] Exit-only event: VRM=${VRM}, exitId=${lastExit.id}, time=${lastExit.timestamp}`);
+        
+        events.push({
+            siteId: siteId,
+            VRM: VRM,
+            entryTime: null,
+            exitTime: lastExit.timestamp,
+            durationMinutes: null,
+            throughTraffic: false,
+            entryDetectionId: null,
+            exitDetectionId: lastExit.id,
+            entryCameraId: null,
+            exitCameraId: lastExit.cameraID
+        });
     }
+    
     return events;
 }
 

@@ -4,149 +4,330 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Status Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4338ca;
+            --bg-light: #f5f5f5;
+            --bg-dark: #18181b;
+            --card-bg-light: #f8fafc;
+            --card-bg-dark: #232336;
+            --text-light: #333;
+            --text-dark: #f3f4f6;
+            --header-gradient: linear-gradient(120deg, #6366f1 60%, #818cf8 100%);
+            --glass-bg: rgba(255,255,255,0.7);
+            --glass-bg-dark: rgba(36,37,46,0.7);
+        }
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: repeating-linear-gradient(135deg, #f5f5f5 0 40px, #e0e7ff 40px 80px);
+            margin: 0;
+            transition: background 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background: repeating-linear-gradient(135deg, #18181b 0 40px, #232336 40px 80px);
+            color: var(--text-dark);
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 16px rgba(99,102,241,0.07);
+            border-bottom: 1px solid #e0e7ff;
+            padding: 0.7rem 0 0.7rem 0;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        body.dark-mode .sticky-header {
+            background: var(--glass-bg-dark);
+            border-bottom: 1px solid #232336;
+        }
+        .header-title {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 1px;
+            text-shadow: 0 2px 8px rgba(99,102,241,0.08);
+            display: flex;
+            align-items: center;
+            gap: 0.7em;
+        }
+        .dark-mode .header-title { color: #a5b4fc; }
+        .dark-toggle {
+            position: absolute;
+            right: 48px;
+            top: 18px;
+            z-index: 10;
+            background: rgba(99,102,241,0.08);
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--primary);
+            transition: background 0.2s, color 0.2s;
+        }
+        .dark-toggle:hover { background: var(--primary); color: #fff; }
+        .container {
+            max-width: 1500px;
+            margin: 0 auto 60px auto;
+            background: transparent;
+            border-radius: 16px;
+            box-shadow: none;
+            padding: 0 32px 32px 32px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+        @media (min-width: 1400px) {
+            .card-grid { grid-template-columns: repeat(4, 1fr); }
+        }
         .camera-card {
-            margin-bottom: 1rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg-light);
+            border-radius: 18px;
+            box-shadow: 0 4px 32px rgba(99,102,241,0.10);
+            padding: 0;
+            border: 1.5px solid #e0e7ff;
+            transition: box-shadow 0.2s, background 0.3s, color 0.3s, transform 0.18s;
+            position: relative;
+            overflow: hidden;
+        }
+        body.dark-mode .camera-card {
+            background: var(--card-bg-dark);
+            color: var(--text-dark);
+            border: 1.5px solid #232336;
         }
         .camera-card:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 12px 36px rgba(99,102,241,0.18);
+            transform: translateY(-6px) scale(1.025);
         }
-        .metrics {
-            margin-top: 10px;
-            font-size: 1rem;
+        .card-header {
+            background: var(--header-gradient);
+            color: #fff;
+            border-radius: 18px 18px 0 0;
+            padding: 22px 28px 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 70px;
         }
-        .metrics span {
-            display: inline-block;
-            min-width: 140px;
+        .camera-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
         }
-        .interval {
-            color: #4f46e5;
-            font-weight: 600;
-        }
-        .thresholds {
-            font-size: 0.85em;
-            color: #666;
-            margin-top: 8px;
-        }
-        .sparkline {
-            margin-top: 12px;
-            height: 30px;
+        .camera-icon {
+            font-size: 2.1rem;
+            margin-right: 12px;
+            color: #fff;
         }
         .status-indicator {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            margin-right: 5px;
+            margin-right: 8px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.12);
+            animation: pulse 1.5s infinite;
         }
-        .status-online {
-            background-color: green;
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(34,197,94,0.0); }
+            100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.0); }
         }
-        .status-offline {
-            background-color: red;
+        .status-online { background-color: #22c55e; }
+        .status-offline { background-color: #ef4444; }
+        .status-anomaly { background-color: #facc15; }
+        .status-badge {
+            font-size: 1em;
+            font-weight: 600;
+            border-radius: 2em;
+            padding: 0.45em 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            background: rgba(255,255,255,0.18);
+            color: #fff;
+            border: 1.5px solid #fff2;
+            cursor: pointer;
         }
-        .status-anomaly {
-            background-color: yellow;
+        .status-badge[title] { position: relative; }
+        .status-badge[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            left: 50%;
+            top: 120%;
+            transform: translateX(-50%);
+            background: #232336;
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            white-space: nowrap;
+            z-index: 20;
+            opacity: 0.95;
         }
+        .card-body {
+            padding: 28px 28px 18px 28px;
+        }
+        .metrics {
+            margin-top: 14px;
+            font-size: 1.08rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .metrics span { min-width: 120px; }
+        .interval { color: #4f46e5; font-weight: 600; }
+        .dark-mode .interval { color: #a5b4fc; }
+        .thresholds { font-size: 1em; color: #666; margin-top: 10px; }
+        .dark-mode .thresholds { color: #a1a1aa; }
+        .sparkline { margin-top: 16px; height: 30px; }
+        .last-image { margin-top: 16px; text-align: center; }
+        .last-image img { border: 2px solid #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,0.13); transition: transform 0.2s; cursor: pointer; border-radius: 10px; }
+        .last-image img:hover { transform: scale(1.12); box-shadow: 0 4px 24px #6366f1aa; }
+        .alert-warning { font-size: 1.05em; }
+        .dark-mode .alert-warning { background: #facc15; color: #18181b; }
+        .divider { height: 1.5px; background: #e0e7ff; margin: 24px 0; border-radius: 2px; opacity: 0.7; }
+        body.dark-mode .divider { background: #232336; }
+        .placeholder-img {
+            width: 96px; height: 72px; display: inline-block; background: #e0e7ff; border-radius: 10px; color: #6366f1; font-size: 2.5rem; line-height: 72px; text-align: center; border: 2px dashed #b4b4f8; }
+        .lightbox-modal {
+            display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(30,32,44,0.92); align-items: center; justify-content: center; }
+        .lightbox-modal.active { display: flex; }
+        .lightbox-modal img { max-width: 90vw; max-height: 80vh; border-radius: 16px; box-shadow: 0 8px 32px #000a; }
+        .lightbox-modal .close-btn { position: absolute; top: 40px; right: 60px; font-size: 2.5rem; color: #fff; cursor: pointer; }
+        .lightbox-modal .close-btn:hover { color: #f87171; }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">Camera Status Dashboard</h1>
-        
-        <div class="row">
+    <div class="sticky-header">
+        <span class="header-title"><i class="bi bi-camera-video"></i>Camera Status Dashboard</span>
+        <button class="btn btn-dark dark-toggle" onclick="toggleDarkMode()" title="Toggle dark mode"><i class="bi bi-moon-stars"></i></button>
+    </div>
+    <div class="container">
+        <div class="card-grid">
             <% cameras.forEach(camera => { %>
-                <div class="col-md-6 col-lg-4">
-                    <div class="card camera-card<%= camera.lastMonth === 0 ? ' border-danger' : '' %>">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <span class="status-indicator status-<%= camera.status %>"></span>
-                                <%= camera.name %>
-                                <span class="ms-2 badge bg-secondary"><%= camera.status.charAt(0).toUpperCase() + camera.status.slice(1) %></span>
-                            </h5>
+                <div class="camera-card<%= camera.lastMonth === 0 ? ' border-danger' : '' %>">
+                    <div class="card-header">
+                        <span class="camera-title">
+                            <span class="camera-icon"><i class="bi bi-camera"></i></span>
+                            <span class="status-indicator status-<%= camera.status %>" title="<%= camera.status.charAt(0).toUpperCase() + camera.status.slice(1) %>"></span>
+                            <%= camera.name %>
+                        </span>
+                        <span class="status-badge" title="<%= camera.status === 'online' ? 'Camera is online' : camera.status === 'anomaly' ? 'Camera may be experiencing issues' : 'Camera is offline' %>">
+                            <% if (camera.status === 'online') { %><i class="bi bi-check-circle-fill text-success"></i> Online<% } %>
+                            <% if (camera.status === 'anomaly') { %><i class="bi bi-exclamation-triangle-fill text-warning"></i> Anomaly<% } %>
+                            <% if (camera.status === 'offline') { %><i class="bi bi-x-circle-fill text-danger"></i> Offline<% } %>
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <% if (camera.lastMonth === 0) { %>
+                            <div class="alert alert-warning p-2 mb-2">
+                                <strong>Warning:</strong> No detections in the last 30 days.
+                            </div>
+                        <% } %>
+                        <div class="row mb-2">
+                            <div class="col-6 text-start">
+                                <strong>Last Detection:</strong><br>
+                                <%= camera.lastDetection ? new Date(camera.lastDetection).toLocaleString() : 'Never' %>
+                            </div>
+                            <div class="col-6 text-end">
+                                <strong>Detection Count:</strong><br>
+                                <%= camera.detectionCount %>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <% if (camera.lastMonth === 0) { %>
-                                <div class="alert alert-warning p-2 mb-2">
-                                    <strong>Warning:</strong> No detections in the last 30 days.
-                                </div>
-                            <% } %>
-                            <p class="card-text">
-                                <strong>Last Detection:</strong> <%= camera.lastDetection ? new Date(camera.lastDetection).toLocaleString() : 'Never' %><br>
-                                <strong>Detection Count:</strong> <%= camera.detectionCount %><br>
+                        <div class="row mb-2">
+                            <div class="col-6 text-start">
                                 <strong>Direction:</strong> <%= camera.direction %><br>
                                 <strong>Entry Trigger:</strong> <%= camera.isEntryTrigger ? 'Yes' : 'No' %><br>
                                 <strong>Exit Trigger:</strong> <%= camera.isExitTrigger ? 'Yes' : 'No' %><br>
                                 <strong>Entry Direction:</strong> <%= camera.entryDirection || '-' %><br>
+                            </div>
+                            <div class="col-6 text-end">
                                 <strong>Car Park ID:</strong> <%= camera.carParkId || 'Not assigned' %>
-                            </p>
-                            
-                            <div class="metrics">
-                                <span><strong>Last Hour:</strong> <%= camera.lastHour %></span>
-                                <span><strong>Last Day:</strong> <%= camera.lastDay %></span>
-                                <span><strong>Last 30d:</strong> <%= camera.lastMonth %></span>
                             </div>
-                            
-                            <div class="metrics">
-                                <span><strong>Day 24h:</strong> <%= camera.day24h %></span>
-                                <span><strong>Night 24h:</strong> <%= camera.night24h %></span>
+                        </div>
+                        <div class="metrics">
+                            <span class="badge bg-primary" title="Detections in the last hour"><strong>Last Hour:</strong> <%= camera.lastHour %></span>
+                            <span class="badge bg-info text-dark" title="Detections in the last 24 hours"><strong>Last Day:</strong> <%= camera.lastDay %></span>
+                            <span class="badge bg-secondary" title="Detections in the last 30 days"><strong>Last 30d:</strong> <%= camera.lastMonth %></span>
+                        </div>
+                        <div class="metrics">
+                            <span class="badge bg-success" title="Daytime detections in last 24h"><strong>Day 24h:</strong> <%= camera.day24h %></span>
+                            <span class="badge bg-warning text-dark" title="Nighttime detections in last 24h"><strong>Night 24h:</strong> <%= camera.night24h %></span>
+                        </div>
+                        <div class="metrics">
+                            <span class="badge bg-success" title="Daytime detections in last 30d"><strong>Day 30d:</strong> <%= camera.day30d %></span>
+                            <span class="badge bg-warning text-dark" title="Nighttime detections in last 30d"><strong>Night 30d:</strong> <%= camera.night30d %></span>
+                        </div>
+                        <div class="metrics">
+                            <span class="interval badge bg-light text-primary" title="Average interval between detections"><strong>Avg Interval:</strong> <%= camera.avgInterval ? camera.avgInterval.toFixed(1) + ' min' : 'N/A' %></span>
+                        </div>
+                        <div class="thresholds">
+                            <span>Green ≤ <%= Math.round(camera.greenLimit) %> min</span> | 
+                            <span>Yellow ≤ <%= Math.round(camera.yellowLimit) %> min</span>
+                        </div>
+                        <% if (camera.lastImageDetectionId) { %>
+                            <div class="last-image">
+                                <strong>Last Image:</strong><br>
+                                <img src="/image/<%= camera.lastImageDetectionId %>/1" alt="Last Image" style="width:96px;height:72px;object-fit:cover;" onerror="this.style.display='none';document.getElementById('placeholder-<%= camera.name.replace(/[^a-zA-Z0-9]/g, '') %>').style.display='inline-block';" onclick="showLightbox('/image/<%= camera.lastImageDetectionId %>/1')">
+                                <span id="placeholder-<%= camera.name.replace(/[^a-zA-Z0-9]/g, '') %>" class="placeholder-img" style="display:none;"><i class="bi bi-image"></i></span>
                             </div>
-                            
-                            <div class="metrics">
-                                <span><strong>Day 30d:</strong> <%= camera.day30d %></span>
-                                <span><strong>Night 30d:</strong> <%= camera.night30d %></span>
-                            </div>
-                            
-                            <div class="metrics">
-                                <span class="interval"><strong>Avg Interval:</strong> <%= camera.avgInterval ? camera.avgInterval.toFixed(1) + ' min' : 'N/A' %></span>
-                            </div>
-                            
-                            <div class="thresholds">
-                                <span>Green ≤ <%= Math.round(camera.greenLimit) %> min</span> | 
-                                <span>Yellow ≤ <%= Math.round(camera.yellowLimit) %> min</span>
-                            </div>
-                            
-                            <% if (camera.lastImageDetectionId) { %>
-                                <div class="mt-2">
-                                    <strong>Last Image:</strong><br>
-                                    <a href="/image/<%= camera.lastImageDetectionId %>/1" target="_blank">
-                                        <img src="/image/<%= camera.lastImageDetectionId %>/1" alt="Last Image" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" onerror="this.src='/images/placeholder.jpg'">
-                                    </a>
-                                </div>
-                            <% } else { %>
-                                <div class="mt-2 text-muted"><em>No image available</em></div>
-                            <% } %>
-                            
-                            <div class="sparkline">
-                                <canvas width="120" height="28" data-points="<%= camera.sparkline.join(',') %>"></canvas>
-                                <div style="font-size:0.9em;color:#888;text-align:right;">last 24h</div>
-                            </div>
+                        <% } else { %>
+                            <div class="last-image text-muted"><span class="placeholder-img"><i class="bi bi-image"></i></span><br><em>No image available</em></div>
+                        <% } %>
+                        <div class="sparkline">
+                            <canvas width="120" height="28" data-points="<%= camera.sparkline.join(',') %>"></canvas>
+                            <div style="font-size:0.9em;color:#888;text-align:right;">last 24h</div>
                         </div>
                     </div>
                 </div>
             <% }); %>
         </div>
     </div>
-
+    <div class="lightbox-modal" id="lightboxModal" onclick="hideLightbox()">
+        <span class="close-btn" onclick="hideLightbox(event)">&times;</span>
+        <img id="lightboxImg" src="" alt="Full Size">
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        }
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+        // Draw sparklines
         document.addEventListener('DOMContentLoaded', function() {
-            // Draw sparklines
             document.querySelectorAll('.sparkline canvas').forEach(canvas => {
                 const ctx = canvas.getContext('2d');
                 const points = canvas.dataset.points.split(',').map(Number);
                 const w = canvas.width, h = canvas.height;
                 const max = Math.max(...points, 1);
-                
                 ctx.clearRect(0, 0, w, h);
                 ctx.strokeStyle = '#6366f1';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                
                 points.forEach((v, i) => {
                     const x = i * (w / (points.length - 1));
                     const y = h - (v / max) * (h - 4) - 2;
@@ -154,7 +335,6 @@
                     else ctx.lineTo(x, y);
                 });
                 ctx.stroke();
-                
                 // Draw dots
                 ctx.fillStyle = '#6366f1';
                 points.forEach((v, i) => {
@@ -166,6 +346,19 @@
                 });
             });
         });
+        // Lightbox modal for images
+        function showLightbox(src) {
+            var modal = document.getElementById('lightboxModal');
+            var img = document.getElementById('lightboxImg');
+            img.src = src;
+            modal.classList.add('active');
+        }
+        function hideLightbox(e) {
+            if (!e || e.target === e.currentTarget || (e.target && e.target.classList.contains('close-btn'))) {
+                document.getElementById('lightboxModal').classList.remove('active');
+                document.getElementById('lightboxImg').src = '';
+            }
+        }
     </script>
 </body>
 </html>

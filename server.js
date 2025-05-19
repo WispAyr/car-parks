@@ -12,6 +12,7 @@ const http = require('http');
 const socketio = require('socket.io');
 const { generateParkingEvents } = require('./eventGeneration');
 const pool = require('./dbPool');
+const { fetchWhitelistsFromMonday, getCachedWhitelists, isWhitelisted } = require('./mondayWhitelistService');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -464,6 +465,42 @@ app.get('/api/detections', async (req, res) => {
     } catch (err) {
         console.error('Error fetching API data:', err);
         res.status(500).json({ error: 'Error fetching data' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// API endpoint to fetch a single detection by ID
+app.get('/api/detection/:id', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const [detection] = await conn.query(`
+            SELECT 
+                id, VRM, createdAt, type, timestamp, direction, 
+                confidence, tag, tagConfidence, country, cameraID,
+                processed, processed_at
+            FROM anpr_detections 
+            WHERE id = ?
+        `, [req.params.id]);
+
+        if (!detection) {
+            return res.status(404).json({ error: 'Detection not found' });
+        }
+
+        // Convert BigInt to Number for JSON serialization
+        const formattedDetection = Object.fromEntries(
+            Object.entries(detection).map(([k, v]) => [
+                k, 
+                typeof v === 'bigint' ? Number(v) : 
+                v instanceof Date ? v.toISOString() : v
+            ])
+        );
+
+        res.json(formattedDetection);
+    } catch (err) {
+        console.error('Error fetching detection:', err);
+        res.status(500).json({ error: 'Error fetching detection' });
     } finally {
         if (conn) conn.release();
     }
@@ -2013,4 +2050,169 @@ app.post('/api/regenerate-events', async (req, res) => {
     } finally {
         if (conn) conn.release();
     }
+});
+
+// Split Event API endpoint
+app.post('/api/events/:id/split', async (req, res) => {
+    let conn;
+    try {
+        const eventId = req.params.id;
+        const { splitDetectionId } = req.body;
+        if (!splitDetectionId) {
+            return res.status(400).json({ success: false, error: 'No splitDetectionId provided' });
+        }
+        conn = await pool.getConnection();
+
+        // Get the original event
+        const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [eventId]);
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        // Get all detections for this event (same VRM, car park, ordered by timestamp)
+        const detections = await conn.query(`
+            SELECT d.* FROM anpr_detections d
+            JOIN cameras c ON d.cameraID = c.name
+            WHERE c.carParkId = ? AND d.VRM = ?
+            ORDER BY d.timestamp ASC, d.id ASC
+        `, [event.siteId, event.VRM]);
+        if (!detections.length) {
+            return res.status(404).json({ success: false, error: 'No detections found for this event' });
+        }
+
+        // Find split index
+        const splitIdx = detections.findIndex(d => d.id == splitDetectionId);
+        if (splitIdx === -1 || splitIdx === detections.length - 1) {
+            return res.status(400).json({ success: false, error: 'Invalid split point' });
+        }
+
+        // Split detections into two groups
+        const group1 = detections.slice(0, splitIdx + 1);
+        const group2 = detections.slice(splitIdx + 1);
+
+        // Helper to generate event from detection group
+        async function createEventFromGroup(group) {
+            if (!group.length) return null;
+            const entry = group[0];
+            const exit = group.length > 1 ? group[group.length - 1] : null;
+            const entryTime = entry.timestamp;
+            const exitTime = exit ? exit.timestamp : null;
+            const durationMinutes = exitTime ? (new Date(exitTime) - new Date(entryTime)) / 60000 : null;
+            const entryDetectionId = entry.id;
+            const exitDetectionId = exit ? exit.id : null;
+            const entryCameraId = entry.cameraID;
+            const exitCameraId = exit ? exit.cameraID : null;
+            // throughTraffic: if duration < 5 min and entry/exit on same camera
+            let throughTraffic = false;
+            if (exitTime && durationMinutes !== null && durationMinutes < 5 && entryCameraId === exitCameraId) {
+                throughTraffic = true;
+            }
+            // Insert new event (no manualSplit field)
+            const [result] = await conn.query(`
+                INSERT INTO parking_events
+                (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                event.siteId,
+                event.VRM,
+                entryTime,
+                exitTime,
+                durationMinutes,
+                throughTraffic,
+                entryDetectionId,
+                exitDetectionId,
+                entryCameraId,
+                exitCameraId
+            ]);
+            return result.insertId;
+        }
+
+        // Create two new events
+        const newEventId1 = await createEventFromGroup(group1);
+        const newEventId2 = await createEventFromGroup(group2);
+
+        // Flag the original event as split (add a flag or update a column)
+        await conn.query('UPDATE parking_events SET flagged = 1, flagReason = ? WHERE id = ?', ['Manually split', eventId]);
+
+        // Optionally, add to audit log
+        await conn.query('INSERT INTO flagged_events (VRM, siteId, detectionId, timestamp, reason, status, details) VALUES (?, ?, ?, NOW(), ?, ?, ?)', [
+            event.VRM, event.siteId, splitDetectionId, 'Manual split', 'open', `Split at detection ID ${splitDetectionId}`
+        ]);
+
+        res.json({ success: true, newEventId1, newEventId2 });
+    } catch (err) {
+        console.error('Error splitting event:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Scheduled sync every hour
+fetchWhitelistsFromMonday();
+setInterval(fetchWhitelistsFromMonday, 60 * 60 * 1000);
+
+// Admin UI to view current whitelists
+app.get('/admin/whitelists', (req, res) => {
+  const whitelists = getCachedWhitelists();
+  res.render('admin/whitelists', { whitelists });
+});
+
+// Placeholder: Payment lookup function (to be implemented)
+async function isPaymentValid(siteId, vrm, entryTime, exitTime) {
+  // TODO: Implement payment lookup logic
+  // Return true if a payment covers the event duration
+  return false;
+}
+
+// Finalize a single event (can be called by job or API)
+async function finalizeEvent(event, conn) {
+  const { id, siteId, VRM, entryTime, exitTime } = event;
+  const now = new Date();
+  // Check whitelist
+  const whitelisted = isWhitelisted(siteId, VRM, now);
+  // Check payment (placeholder)
+  const paid = await isPaymentValid(siteId, VRM, entryTime, exitTime);
+  let status = 'unpaid';
+  if (whitelisted) status = 'whitelisted';
+  else if (paid) status = 'paid';
+  // Update event
+  await conn.query('UPDATE parking_events SET status = ?, whitelistCheckedAt = ?, paymentCheckedAt = ?, isWhitelisted = ?, isPaid = ? WHERE id = ?',
+    [status, now, now, whitelisted, paid, id]);
+}
+
+// Scheduled job to finalize pending events
+async function finalizePendingEvents() {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    // Get all pending events
+    const pending = await conn.query('SELECT * FROM parking_events WHERE status = "pending"');
+    for (const event of pending) {
+      await finalizeEvent(event, conn);
+    }
+  } catch (err) {
+    console.error('Error finalizing events:', err);
+  } finally {
+    if (conn) conn.release();
+  }
+}
+
+// Run every 5 minutes
+setInterval(finalizePendingEvents, 5 * 60 * 1000);
+
+// Admin endpoint to manually finalize a single event
+app.post('/admin/events/:id/finalize', async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [req.params.id]);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    await finalizeEvent(event, conn);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) conn.release();
+  }
 });

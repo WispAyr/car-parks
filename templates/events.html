@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Events</h1>
+    <div class="row">
+        {% for event in events %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Event #{{ event.id }}</h5>
+                    <p class="card-text">
+                        Type: {{ event.event_type }}<br>
+                        Entry Time: {{ event.entry_time }}<br>
+                        {% if event.exit_time %}
+                        Exit Time: {{ event.exit_time }}<br>
+                        {% endif %}
+                        Duration: {{ event.duration }} seconds
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Entry Image</h6>
+                            {% set entry_image, exit_image = get_event_images(event.id) %}
+                            {% if entry_image %}
+                            <img src="{{ url_for('serve_image', filename=entry_image) }}" class="img-fluid" alt="Entry Image">
+                            {% else %}
+                            <p>No entry image available</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Exit Image</h6>
+                            {% if exit_image %}
+                            <img src="{{ url_for('serve_image', filename=exit_image) }}" class="img-fluid" alt="Exit Image">
+                            {% else %}
+                            <p>No exit image available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 
