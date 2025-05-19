@@ -1,0 +1,1 @@
+ALTER TABLE parking_events ADD COLUMN status VARCHAR(32) DEFAULT 'pending'; 

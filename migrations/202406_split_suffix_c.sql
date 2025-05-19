@@ -1,0 +1,1 @@
+ALTER TABLE parking_events ADD UNIQUE unique_parking_event (siteId, VRM, entryTime, splitSuffix); 

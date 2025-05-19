@@ -8,27 +8,91 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --bg-main: #f7f8fa;
+            --bg-gradient: linear-gradient(120deg, #f7f8fa 60%, #e6eaff 100%);
+            --header-bg: #f4f6fb;
+            --table-bg: #f3f6ff;
+            --table-header-bg: linear-gradient(90deg, #c7d2fe 0%, #e0e7ff 100%);
+            --table-row-alt: #eaf0fb;
+            --table-row-hover: #e0e7ff66;
+            --chip-bg: #e0e7ff;
+            --chip-color: #3730a3;
+            --chip-icon: #6366f1;
+            --badge-success: #22c55e;
+            --badge-primary: #6366f1;
+            --badge-danger: #ef4444;
+            --badge-secondary: #64748b;
+            --text-main: #23272f;
+            --text-muted: #7b809a;
+            --border-main: #c7d2fe;
+            --shadow-main: 0 8px 32px rgba(99,102,241,0.16);
+            --modal-bg: #fff;
+        }
+        body.dark-mode {
+            --bg-main: #181a20;
+            --bg-gradient: linear-gradient(120deg, #23272f 60%, #373a47 100%);
+            --header-bg: #23272f;
+            --table-bg: #23272f;
+            --table-header-bg: #323544;
+            --table-row-alt: #23272f;
+            --table-row-hover: #323544;
+            --chip-bg: #323544;
+            --chip-color: #a5b4fc;
+            --chip-icon: #a5b4fc;
+            --badge-success: #22c55e;
+            --badge-primary: #818cf8;
+            --badge-danger: #ef4444;
+            --badge-secondary: #64748b;
+            --text-main: #e5e7eb;
+            --text-muted: #a1a1aa;
+            --border-main: #323544;
+            --shadow-main: 0 6px 32px rgba(30,41,59,0.18);
+            --modal-bg: #23272f;
+        }
         body {
             font-family: 'Inter', Arial, sans-serif;
             margin: 0;
-            background: linear-gradient(120deg, #f5f5f5 60%, #e0e7ff 100%);
+            background: var(--bg-gradient);
+            color: var(--text-main);
         }
         .header {
-            background: #fff;
+            background: var(--header-bg);
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             padding: 32px 0 16px 0;
             margin-bottom: 0;
             position: sticky;
             top: 0;
             z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        h1 {
-            color: #333;
+        .header h1 {
+            flex: 1;
+            color: var(--text-main);
             text-align: center;
             font-size: 2.5rem;
             font-weight: 700;
             letter-spacing: 1px;
             margin: 0;
+        }
+        .dark-toggle {
+            position: absolute;
+            right: 32px;
+            top: 36px;
+            background: var(--table-header-bg);
+            border: 1.5px solid var(--border-main);
+            border-radius: 2em;
+            padding: 6px 18px;
+            color: var(--text-main);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .dark-toggle:hover {
+            background: var(--badge-primary);
+            color: #fff;
         }
         .nav {
             text-align: center;
@@ -39,14 +103,14 @@
             margin: 0 10px;
             padding: 8px 18px;
             border-radius: 6px;
-            background: #e0e7ff;
-            color: #333;
+            background: var(--table-header-bg);
+            color: var(--text-main);
             text-decoration: none;
             font-weight: 500;
-            transition: background 0.2s;
+            transition: background 0.2s, color 0.2s;
         }
         .nav a.active, .nav a:hover {
-            background: #6366f1;
+            background: var(--badge-primary);
             color: #fff;
         }
         .filter-bar {
@@ -55,10 +119,10 @@
             align-items: center;
             justify-content: center;
             gap: 18px;
-            background: #f8fafc;
-            border: 1.5px solid #e0e7ff;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(99,102,241,0.04);
+            background: var(--table-bg);
+            border: 2px solid var(--border-main);
+            border-radius: 18px;
+            box-shadow: 0 4px 16px rgba(99,102,241,0.10);
             padding: 18px 18px 10px 18px;
             margin: 0 auto 24px auto;
             max-width: 1200px;
@@ -70,46 +134,62 @@
         .filter-bar select, .filter-bar button {
             min-width: 120px;
             border-radius: 6px;
-            border: 1px solid #c7d2fe;
+            border: 1px solid var(--border-main);
             padding: 6px 12px;
             font-size: 1em;
+            background: var(--table-bg);
+            color: var(--text-main);
         }
         .timezone-btn {
             margin-left: 8px;
             padding: 6px 12px;
             border-radius: 6px;
-            border: 1px solid #6366f1;
-            background: #fff;
-            color: #6366f1;
+            border: 1px solid var(--badge-primary);
+            background: var(--table-bg);
+            color: var(--badge-primary);
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
         }
         .timezone-btn:hover {
-            background: #6366f1;
+            background: var(--badge-primary);
             color: #fff;
         }
         .events-table {
-            width: 96vw;
-            max-width: 1200px;
+            width: 98vw;
+            max-width: 1280px;
             margin: 0 auto 32px auto;
-            border-collapse: collapse;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            border-collapse: separate;
+            border-spacing: 0;
+            background: var(--table-bg);
+            border-radius: 24px;
+            box-shadow: var(--shadow-main);
             overflow: hidden;
+            border: 2px solid var(--border-main);
+            margin-top: 18px;
         }
         .events-table th, .events-table td {
-            padding: 12px 10px;
+            padding: 22px 16px;
             text-align: left;
         }
         .events-table th {
-            background: #e0e7ff;
-            color: #333;
-            font-weight: 600;
+            background: var(--table-header-bg);
+            color: var(--text-main);
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            border-bottom: 2px solid var(--border-main);
+            letter-spacing: 0.02em;
+        }
+        .events-table tr {
+            transition: background 0.18s;
         }
         .events-table tr:nth-child(even) {
-            background: #f5f5f5;
+            background: var(--table-row-alt);
+        }
+        .events-table tr:hover {
+            background: var(--table-row-hover);
         }
         .flag {
             color: #fff;
@@ -128,8 +208,28 @@
             align-items: center;
             gap: 0.5em;
         }
+        .bg-success { background: var(--badge-success) !important; color: #fff !important; }
+        .bg-primary { background: var(--badge-primary) !important; color: #fff !important; }
+        .bg-danger { background: var(--badge-danger) !important; color: #fff !important; }
+        .bg-secondary { background: var(--badge-secondary) !important; color: #fff !important; }
+        .camera-chip {
+            display: inline-flex;
+            align-items: center;
+            background: var(--chip-bg);
+            color: var(--chip-color);
+            border-radius: 1.2em;
+            padding: 0.25em 0.9em 0.25em 0.7em;
+            font-size: 1em;
+            font-weight: 600;
+            gap: 0.5em;
+            box-shadow: 0 1px 4px rgba(99,102,241,0.07);
+            margin-right: 0.2em;
+        }
+        .camera-chip i {
+            color: var(--chip-icon);
+        }
         .image-cell {
-            background: #f8fafc;
+            background: var(--table-row-alt);
             text-align: center;
             vertical-align: middle;
         }
@@ -137,26 +237,35 @@
             width: 56px;
             height: 56px;
             object-fit: cover;
-            border-radius: 6px;
-            border: 1.5px solid #e0e7ff;
+            border-radius: 8px;
+            border: 1.5px solid var(--border-main);
             box-shadow: 0 2px 8px rgba(99,102,241,0.08);
             transition: transform 0.18s, box-shadow 0.18s;
+            background: var(--table-bg);
         }
         .thumbnail:hover {
             transform: scale(1.12);
             box-shadow: 0 4px 16px rgba(99,102,241,0.18);
             z-index: 2;
         }
-        @media (max-width: 900px) {
-            .filter-bar { flex-direction: column; gap: 10px; padding: 12px 6px; }
+        .btn-outline-primary {
+            border-radius: 2em;
+            font-weight: 600;
+            padding: 0.4em 1.2em;
+            font-size: 1em;
+            border-width: 2px;
+        }
+        @media (max-width: 1100px) {
             .events-table, .events-table th, .events-table td { font-size: 13px; }
+            .filter-bar { max-width: 98vw; }
+        }
+        @media (max-width: 700px) {
+            .events-table, .events-table th, .events-table td { font-size: 11px; padding: 8px 4px; }
+            .filter-bar { flex-direction: column; gap: 10px; padding: 12px 6px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Parking Events</h1>
-    </div>
     <div class="nav">
         <a href="/events" class="<%= tab === 'completed' ? 'active' : '' %>">Completed Events</a>
         <a href="/currently-parked" class="<%= tab === 'parked' ? 'active' : '' %>">Currently Parked</a>
@@ -171,30 +280,31 @@
         </div>
     <% } %>
     <div class="filter-bar">
-        <label for="siteSelect">Car Park:</label>
-        <select id="siteSelect" class="form-select" style="width: auto; display: inline-block;">
-            <option value="">All</option>
-            <% carparks.forEach(cp => { %>
-                <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>><%= cp.name %></option>
-            <% }) %>
-        </select>
-        <label for="eventType">Event Type:</label>
-        <select id="eventType" class="form-select" style="width: auto; display: inline-block;">
-            <option value="all">All Events</option>
-            <option value="completed">Completed Only</option>
-            <option value="parked">Currently Parked</option>
-            <option value="through">Through Traffic</option>
-        </select>
-        <label for="statusFilter">Status:</label>
-        <select id="statusFilter" class="form-select" style="width: auto; display: inline-block;">
-            <option value="">All</option>
-            <option value="whitelisted">Whitelisted</option>
-            <option value="paid">Paid</option>
-            <option value="unpaid">Unpaid</option>
-        </select>
-        <button id="timezoneToggle" class="timezone-btn" onclick="toggleTimezone()">
-            Switch to GMT
-        </button>
+        <form method="GET" class="d-flex gap-2 align-items-center">
+            <select id="siteSelect" name="siteId" class="form-select" onchange="this.form.submit()">
+                <option value="">All Car Parks</option>
+                <% carparks.forEach(function(cp) { %>
+                    <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>>
+                        <%= cp.name %>
+                    </option>
+                <% }); %>
+            </select>
+            
+            <select id="eventType" name="eventType" class="form-select" onchange="this.form.submit()">
+                <option value="all">All Events</option>
+                <option value="completed" <%= tab === 'completed' ? 'selected' : '' %>>Completed Only</option>
+                <option value="parked" <%= tab === 'parked' ? 'selected' : '' %>>Currently Parked</option>
+                <option value="through">Through Traffic</option>
+            </select>
+
+            <% const currentStatus = typeof selectedStatus !== 'undefined' ? selectedStatus : ''; %>
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="">All Statuses</option>
+                <option value="whitelisted" <%= currentStatus === 'whitelisted' ? 'selected' : '' %>>Whitelisted</option>
+                <option value="paid" <%= currentStatus === 'paid' ? 'selected' : '' %>>Paid</option>
+                <option value="unpaid" <%= currentStatus === 'unpaid' ? 'selected' : '' %>>Unpaid</option>
+            </select>
+        </form>
     </div>
     <div class="table-responsive">
         <table class="events-table">
@@ -241,17 +351,24 @@
                             <% } %>
                         </td>
                         <td>
+                            <% if (!event.exitTime) { %>
+                                <span class="badge bg-warning">Currently Parked</span>
+                            <% } else if (event.throughTraffic) { %>
+                                <span class="badge bg-info">Through Traffic</span>
+                            <% } else { %>
+                                <span class="badge bg-success">Completed</span>
+                            <% } %>
+                        </td>
+                        <td>
                             <% if (event.entryCameraName) { %>
-                                <i class="fa fa-video" title="Entry Camera"></i>
-                                <span title="<%= event.entryCameraName %>"><%= event.entryCameraName %></span>
+                                <span class="camera-chip" title="<%= event.entryCameraName %>"><i class="fa fa-video"></i> <%= event.entryCameraName %></span>
                             <% } else { %>
                                 <span class="text-muted">-</span>
                             <% } %>
                         </td>
                         <td>
                             <% if (event.exitCameraName) { %>
-                                <i class="fa fa-video" title="Exit Camera"></i>
-                                <span title="<%= event.exitCameraName %>"><%= event.exitCameraName %></span>
+                                <span class="camera-chip" title="<%= event.exitCameraName %>"><i class="fa fa-video"></i> <%= event.exitCameraName %></span>
                             <% } else { %>
                                 <span class="text-muted">-</span>
                             <% } %>
@@ -271,7 +388,7 @@
                             <% } %>
                         </td>
                         <td>
-                            <a href="/events/<%= event.id %>" class="btn btn-sm btn-outline-primary">Details</a>
+                            <a href="/events/<%= event.id %>" class="btn btn-sm btn-outline-primary"><i class="fa fa-info-circle"></i> Details</a>
                         </td>
                     </tr>
                 <% }) %>
@@ -298,29 +415,6 @@
     <% let basePath = '/events'; if (tab === 'all') { basePath = '/all-events'; } else if (tab === 'parked') { basePath = '/currently-parked'; } %>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Site filter
-            const siteSelect = document.getElementById('siteSelect');
-            siteSelect.addEventListener('change', function() {
-                const url = new URL(window.location.href);
-                url.searchParams.set('siteId', this.value);
-                window.location.href = url.toString();
-            });
-
-            // Event type filter
-            const eventTypeSelect = document.getElementById('eventType');
-            eventTypeSelect.addEventListener('change', function() {
-                const rows = document.querySelectorAll('.event-row');
-                const selectedType = this.value;
-                
-                rows.forEach(row => {
-                    if (selectedType === 'all' || row.dataset.eventType === selectedType) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-
             // Timezone toggle
             let isGMT = false;
             window.toggleTimezone = function() {
@@ -339,17 +433,25 @@
                 });
             };
 
-            document.getElementById('statusFilter').addEventListener('change', function() {
-                var value = this.value;
-                document.querySelectorAll('tr.event-row').forEach(function(row) {
-                    var status = row.querySelector('td:nth-child(6) .badge').textContent.trim().toLowerCase();
-                    if (!value || status === value) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
+            // Dark mode toggle
+            function setDarkMode(enabled) {
+                if (enabled) {
+                    document.body.classList.add('dark-mode');
+                    document.getElementById('darkModeLabel').textContent = 'Light Mode';
+                    document.getElementById('darkModeToggle').innerHTML = '<i class="fa fa-sun"></i> Light Mode';
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    document.getElementById('darkModeLabel').textContent = 'Dark Mode';
+                    document.getElementById('darkModeToggle').innerHTML = '<i class="fa fa-moon"></i> Dark Mode';
+                }
+            }
+            function toggleDarkMode() {
+                const enabled = !document.body.classList.contains('dark-mode');
+                setDarkMode(enabled);
+                localStorage.setItem('darkMode', enabled ? '1' : '0');
+            }
+            // On load, set dark mode from localStorage
+            setDarkMode(localStorage.getItem('darkMode') === '1');
         });
 
         function showImageModal(imageUrl) {

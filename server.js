@@ -13,6 +13,7 @@ const socketio = require('socket.io');
 const { generateParkingEvents } = require('./eventGeneration');
 const pool = require('./dbPool');
 const { fetchWhitelistsFromMonday, getCachedWhitelists, isWhitelisted } = require('./mondayWhitelistService');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -167,6 +168,8 @@ app.get('/events', async (req, res) => {
         // Get all car parks for filter dropdown
         const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
         const selectedCarPark = req.query.siteId || '';
+        const selectedStatus = req.query.status || '';
+        const eventType = req.query.eventType || 'all';
         
         // Build query to fetch only completed events
         let query = `
@@ -182,6 +185,7 @@ app.get('/events', async (req, res) => {
                 pe.exitDetectionId,
                 pe.entryCameraId,
                 pe.exitCameraId,
+                pe.status,
                 cp.name as carParkName,
                 entry_d.VRM as entryVRM,
                 entry_d.timestamp as entryTimestamp,
@@ -190,11 +194,15 @@ app.get('/events', async (req, res) => {
                 exit_d.VRM as exitVRM,
                 exit_d.timestamp as exitTimestamp,
                 (LENGTH(exit_d.image1) > 0) as hasExitImage1,
-                (LENGTH(exit_d.image2) > 0) as hasExitImage2
+                (LENGTH(exit_d.image2) > 0) as hasExitImage2,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
             FROM parking_events pe
             JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
             WHERE pe.exitTime IS NOT NULL
         `;
         const queryParams = [];
@@ -202,6 +210,11 @@ app.get('/events', async (req, res) => {
         if (selectedCarPark) {
             query += ' AND pe.siteId = ?';
             queryParams.push(selectedCarPark);
+        }
+        
+        if (selectedStatus) {
+            query += ' AND pe.status = ?';
+            queryParams.push(selectedStatus);
         }
         
         query += ' ORDER BY pe.entryTime DESC';
@@ -214,6 +227,7 @@ app.get('/events', async (req, res) => {
         res.render('events', { 
             carparks,
             selectedCarPark,
+            selectedStatus,
             events,
             message,
             tab: 'completed'
@@ -234,6 +248,7 @@ app.get('/currently-parked', async (req, res) => {
         // Get all car parks for filter dropdown
         const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
         const selectedCarPark = req.query.siteId || '';
+        const selectedStatus = req.query.status || '';
         
         // Build query to fetch only currently parked events
         let query = `
@@ -249,14 +264,19 @@ app.get('/currently-parked', async (req, res) => {
                 pe.exitDetectionId,
                 pe.entryCameraId,
                 pe.exitCameraId,
+                pe.status,
                 cp.name as carParkName,
                 entry_d.VRM as entryVRM,
                 entry_d.timestamp as entryTimestamp,
                 (LENGTH(entry_d.image1) > 0) as hasEntryImage1,
-                (LENGTH(entry_d.image2) > 0) as hasEntryImage2
+                (LENGTH(entry_d.image2) > 0) as hasEntryImage2,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
             FROM parking_events pe
             JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
             WHERE pe.exitTime IS NULL
         `;
         const queryParams = [];
@@ -264,6 +284,11 @@ app.get('/currently-parked', async (req, res) => {
         if (selectedCarPark) {
             query += ' AND pe.siteId = ?';
             queryParams.push(selectedCarPark);
+        }
+        
+        if (selectedStatus) {
+            query += ' AND pe.status = ?';
+            queryParams.push(selectedStatus);
         }
         
         query += ' ORDER BY pe.entryTime DESC';
@@ -276,6 +301,7 @@ app.get('/currently-parked', async (req, res) => {
         res.render('events', { 
             carparks,
             selectedCarPark,
+            selectedStatus,
             events,
             message,
             tab: 'parked'
@@ -296,6 +322,7 @@ app.get('/all-events', async (req, res) => {
         // Get all car parks for filter dropdown
         const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
         const selectedCarPark = req.query.siteId || '';
+        const selectedStatus = req.query.status || '';
         
         // Build query to fetch all events
         let query = `
@@ -311,6 +338,7 @@ app.get('/all-events', async (req, res) => {
                 pe.exitDetectionId,
                 pe.entryCameraId,
                 pe.exitCameraId,
+                pe.status,
                 cp.name as carParkName,
                 entry_d.VRM as entryVRM,
                 entry_d.timestamp as entryTimestamp,
@@ -319,17 +347,31 @@ app.get('/all-events', async (req, res) => {
                 exit_d.VRM as exitVRM,
                 exit_d.timestamp as exitTimestamp,
                 (LENGTH(exit_d.image1) > 0) as hasExitImage1,
-                (LENGTH(exit_d.image2) > 0) as hasExitImage2
+                (LENGTH(exit_d.image2) > 0) as hasExitImage2,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
             FROM parking_events pe
             JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
         `;
         const queryParams = [];
         
-        if (selectedCarPark) {
-            query += ' WHERE pe.siteId = ?';
-            queryParams.push(selectedCarPark);
+        if (selectedCarPark || selectedStatus) {
+            query += ' WHERE';
+            if (selectedCarPark) {
+                query += ' pe.siteId = ?';
+                queryParams.push(selectedCarPark);
+            }
+            if (selectedCarPark && selectedStatus) {
+                query += ' AND';
+            }
+            if (selectedStatus) {
+                query += ' pe.status = ?';
+                queryParams.push(selectedStatus);
+            }
         }
         
         query += ' ORDER BY pe.entryTime DESC';
@@ -342,6 +384,7 @@ app.get('/all-events', async (req, res) => {
         res.render('events', { 
             carparks,
             selectedCarPark,
+            selectedStatus,
             events,
             message,
             tab: 'all'
@@ -365,6 +408,7 @@ app.get('/', async (req, res) => {
         res.render('events', { 
             carparks, 
             selectedCarPark: '', 
+            selectedStatus: '',
             events: [],
             tab: 'completed' // Add the tab parameter for proper navigation highlighting
         });
@@ -712,7 +756,7 @@ setInterval(async () => {
 
 // Admin navigation
 app.get('/admin', (req, res) => {
-    res.render('admin_nav');
+    res.render('admin/index');
 });
 
 // Car parks management
@@ -1322,11 +1366,15 @@ app.get('/events/:id', async (req, res) => {
                 exit_d.timestamp as exitTime,
                 exit_d.cameraID as exitCamera,
                 exit_d.image1 as exitImage,
-                exit_d.direction as exitDirection
+                exit_d.direction as exitDirection,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
             FROM parking_events pe
             LEFT JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
             WHERE pe.id = ?
         `, [eventId]);
         if (!event) {
@@ -1773,11 +1821,15 @@ app.get('/api/events/:id', async (req, res) => {
                 exit_d.VRM as exitVRM,
                 exit_d.timestamp as exitTime,
                 exit_d.cameraID as exitCamera,
-                exit_d.image1 as exitImage
+                exit_d.image1 as exitImage,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
             FROM parking_events pe
             LEFT JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
             WHERE pe.id = ?
         `, [eventId]);
 
@@ -1929,7 +1981,7 @@ app.post('/api/reset-processed-flags', async (req, res) => {
         res.json({ message: 'Processed flags reset successfully' });
     } catch (err) {
         console.error('Error resetting processed flags:', err);
-        res.status(500).json({ error: 'Failed to reset processed flags' });
+        res.status(500).json({ error: err.message || 'Failed to reset processed flags' });
     } finally {
         if (conn) conn.release();
     }
@@ -2062,10 +2114,12 @@ app.post('/api/events/:id/split', async (req, res) => {
             return res.status(400).json({ success: false, error: 'No splitDetectionId provided' });
         }
         conn = await pool.getConnection();
+        await conn.beginTransaction();
 
-        // Get the original event
-        const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [eventId]);
+        // Lock the original event
+        const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ? FOR UPDATE', [eventId]);
         if (!event) {
+            await conn.rollback();
             return res.status(404).json({ success: false, error: 'Event not found' });
         }
 
@@ -2077,12 +2131,14 @@ app.post('/api/events/:id/split', async (req, res) => {
             ORDER BY d.timestamp ASC, d.id ASC
         `, [event.siteId, event.VRM]);
         if (!detections.length) {
+            await conn.rollback();
             return res.status(404).json({ success: false, error: 'No detections found for this event' });
         }
 
         // Find split index
         const splitIdx = detections.findIndex(d => d.id == splitDetectionId);
         if (splitIdx === -1 || splitIdx === detections.length - 1) {
+            await conn.rollback();
             return res.status(400).json({ success: false, error: 'Invalid split point' });
         }
 
@@ -2090,8 +2146,8 @@ app.post('/api/events/:id/split', async (req, res) => {
         const group1 = detections.slice(0, splitIdx + 1);
         const group2 = detections.slice(splitIdx + 1);
 
-        // Helper to generate event from detection group
-        async function createEventFromGroup(group) {
+        // Helper to generate event data from detection group
+        function getEventDataFromGroup(group, splitSuffix) {
             if (!group.length) return null;
             const entry = group[0];
             const exit = group.length > 1 ? group[group.length - 1] : null;
@@ -2102,19 +2158,13 @@ app.post('/api/events/:id/split', async (req, res) => {
             const exitDetectionId = exit ? exit.id : null;
             const entryCameraId = entry.cameraID;
             const exitCameraId = exit ? exit.cameraID : null;
-            // throughTraffic: if duration < 5 min and entry/exit on same camera
             let throughTraffic = false;
             if (exitTime && durationMinutes !== null && durationMinutes < 5 && entryCameraId === exitCameraId) {
                 throughTraffic = true;
             }
-            // Insert new event (no manualSplit field)
-            const [result] = await conn.query(`
-                INSERT INTO parking_events
-                (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                event.siteId,
-                event.VRM,
+            return {
+                siteId: event.siteId,
+                VRM: event.VRM,
                 entryTime,
                 exitTime,
                 durationMinutes,
@@ -2122,25 +2172,94 @@ app.post('/api/events/:id/split', async (req, res) => {
                 entryDetectionId,
                 exitDetectionId,
                 entryCameraId,
-                exitCameraId
-            ]);
-            return result.insertId;
+                exitCameraId,
+                splitSuffix
+            };
         }
 
-        // Create two new events
-        const newEventId1 = await createEventFromGroup(group1);
-        const newEventId2 = await createEventFromGroup(group2);
+        // Generate unique splitSuffix for each split event
+        const splitSuffix1 = uuidv4();
+        const splitSuffix2 = uuidv4();
+        const eventData1 = getEventDataFromGroup(group1, splitSuffix1);
+        const eventData2 = getEventDataFromGroup(group2, splitSuffix2);
 
-        // Flag the original event as split (add a flag or update a column)
+        // Check for duplicates (excluding the original event)
+        for (const newEvent of [eventData1, eventData2]) {
+            if (!newEvent) continue;
+            const [dup] = await conn.query(
+                'SELECT id FROM parking_events WHERE siteId = ? AND VRM = ? AND entryTime = ? AND splitSuffix = ? AND id != ?',
+                [newEvent.siteId, newEvent.VRM, newEvent.entryTime, newEvent.splitSuffix, eventId]
+            );
+            if (dup) {
+                await conn.rollback();
+                return res.status(409).json({ success: false, error: `Duplicate event exists for entryTime ${newEvent.entryTime} and splitSuffix ${newEvent.splitSuffix}` });
+            }
+        }
+
+        // Flag and delete the original event
         await conn.query('UPDATE parking_events SET flagged = 1, flagReason = ? WHERE id = ?', ['Manually split', eventId]);
+        await conn.query('DELETE FROM parking_events WHERE id = ?', [eventId]);
 
-        // Optionally, add to audit log
+        // Insert new events with unique splitSuffix
+        const result1 = await conn.query(`
+            INSERT INTO parking_events
+            (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId, splitSuffix)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            eventData1.siteId,
+            eventData1.VRM,
+            eventData1.entryTime,
+            eventData1.exitTime,
+            eventData1.durationMinutes,
+            eventData1.throughTraffic,
+            eventData1.entryDetectionId,
+            eventData1.exitDetectionId,
+            eventData1.entryCameraId,
+            eventData1.exitCameraId,
+            eventData1.splitSuffix
+        ]);
+        const newEventId1 = result1.insertId;
+
+        const result2 = await conn.query(`
+            INSERT INTO parking_events
+            (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId, splitSuffix)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            eventData2.siteId,
+            eventData2.VRM,
+            eventData2.entryTime,
+            eventData2.exitTime,
+            eventData2.durationMinutes,
+            eventData2.throughTraffic,
+            eventData2.entryDetectionId,
+            eventData2.exitDetectionId,
+            eventData2.entryCameraId,
+            eventData2.exitCameraId,
+            eventData2.splitSuffix
+        ]);
+        const newEventId2 = result2.insertId;
+
+        // Optionally, add to flagged_events log
         await conn.query('INSERT INTO flagged_events (VRM, siteId, detectionId, timestamp, reason, status, details) VALUES (?, ?, ?, NOW(), ?, ?, ?)', [
             event.VRM, event.siteId, splitDetectionId, 'Manual split', 'open', `Split at detection ID ${splitDetectionId}`
         ]);
 
+        // Add to split event audit log
+        await conn.query(`
+            INSERT INTO split_event_audit_log (originalEventId, newEventId1, newEventId2, splitDetectionId, user, timestamp)
+            VALUES (?, ?, ?, ?, ?, NOW())
+        `, [
+            eventId,
+            newEventId1,
+            newEventId2,
+            splitDetectionId,
+            req.user ? req.user.username : null
+        ]);
+
+        await conn.commit();
         res.json({ success: true, newEventId1, newEventId2 });
     } catch (err) {
+        if (conn) await conn.rollback();
         console.error('Error splitting event:', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
@@ -2171,31 +2290,75 @@ async function finalizeEvent(event, conn) {
   const now = new Date();
   // Check whitelist
   const whitelisted = isWhitelisted(siteId, VRM, now);
+  if (whitelisted) {
+    console.log(`[FINALIZE] VRM=${VRM} FOUND on whitelist for siteId=${siteId}`);
+  } else {
+    console.log(`[FINALIZE] VRM=${VRM} NOT found on whitelist for siteId=${siteId}`);
+  }
   // Check payment (placeholder)
   const paid = await isPaymentValid(siteId, VRM, entryTime, exitTime);
   let status = 'unpaid';
   if (whitelisted) status = 'whitelisted';
   else if (paid) status = 'paid';
-  // Update event
-  await conn.query('UPDATE parking_events SET status = ?, whitelistCheckedAt = ?, paymentCheckedAt = ?, isWhitelisted = ?, isPaid = ? WHERE id = ?',
-    [status, now, now, whitelisted, paid, id]);
+  // Update event (only status column)
+  await conn.query('UPDATE parking_events SET status = ? WHERE id = ?', [status, id]);
+  return status;
 }
 
-// Scheduled job to finalize pending events
-async function finalizePendingEvents() {
+// Admin endpoint to recheck/finalize all events
+app.post('/admin/events/recheck-all', async (req, res) => {
   let conn;
+  let summary = { total: 0, whitelisted: 0, paid: 0, unpaid: 0 };
   try {
     conn = await pool.getConnection();
-    // Get all pending events
-    const pending = await conn.query('SELECT * FROM parking_events WHERE status = "pending"');
-    for (const event of pending) {
-      await finalizeEvent(event, conn);
+    // Get all events (or filter as needed)
+    const events = await conn.query('SELECT * FROM parking_events');
+    for (const event of events) {
+      const status = await finalizeEvent(event, conn);
+      summary.total++;
+      if (status === 'whitelisted') summary.whitelisted++;
+      else if (status === 'paid') summary.paid++;
+      else summary.unpaid++;
     }
+    console.log(`[FINALIZE-ALL] Rechecked ${summary.total} events: ${summary.whitelisted} whitelisted, ${summary.paid} paid, ${summary.unpaid} unpaid.`);
+    res.json({ success: true, summary });
   } catch (err) {
-    console.error('Error finalizing events:', err);
+    console.error('[FINALIZE-ALL] Error rechecking all events:', err);
+    res.status(500).json({ error: err.message });
   } finally {
     if (conn) conn.release();
   }
+});
+
+// Function to finalize pending events
+async function finalizePendingEvents() {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        // Get events that haven't been finalized (no status or status is 'pending')
+        const events = await conn.query(`
+            SELECT * FROM parking_events 
+            WHERE status IS NULL OR status = 'pending'
+            ORDER BY entryTime ASC
+        `);
+        
+        console.log(`[FINALIZE-PENDING] Processing ${events.length} pending events`);
+        
+        for (const event of events) {
+            try {
+                const status = await finalizeEvent(event, conn);
+                console.log(`[FINALIZE-PENDING] Event ${event.id} (${event.VRM}) finalized as ${status}`);
+            } catch (err) {
+                console.error(`[FINALIZE-PENDING] Error finalizing event ${event.id}:`, err);
+                // Continue with next event even if one fails
+                continue;
+            }
+        }
+    } catch (err) {
+        console.error('[FINALIZE-PENDING] Error in finalizePendingEvents:', err);
+    } finally {
+        if (conn) conn.release();
+    }
 }
 
 // Run every 5 minutes
@@ -2204,13 +2367,21 @@ setInterval(finalizePendingEvents, 5 * 60 * 1000);
 // Admin endpoint to manually finalize a single event
 app.post('/admin/events/:id/finalize', async (req, res) => {
   let conn;
+  const eventId = req.params.id;
+  console.log(`[FINALIZE] /admin/events/${eventId}/finalize called`);
   try {
     conn = await pool.getConnection();
-    const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [req.params.id]);
-    if (!event) return res.status(404).json({ error: 'Event not found' });
+    const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [eventId]);
+    if (!event) {
+      console.warn(`[FINALIZE] Event not found for id=${eventId}`);
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    console.log(`[FINALIZE] Finalizing event id=${eventId}, VRM=${event.VRM}, siteId=${event.siteId}`);
     await finalizeEvent(event, conn);
+    console.log(`[FINALIZE] Successfully finalized event id=${eventId}`);
     res.json({ success: true });
   } catch (err) {
+    console.error(`[FINALIZE] Error finalizing event id=${eventId}:`, err);
     res.status(500).json({ error: err.message });
   } finally {
     if (conn) conn.release();

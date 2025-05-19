@@ -1,0 +1,1 @@
+ALTER TABLE parking_events DROP INDEX unique_parking_event; 

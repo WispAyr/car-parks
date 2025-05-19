@@ -1,0 +1,1 @@
+CREATE INDEX idx_parking_events_status ON parking_events(status); 

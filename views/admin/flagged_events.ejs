@@ -83,6 +83,27 @@
             </tbody>
         </table>
     </div>
+    <button id="clearFlaggedBtn" class="btn btn-danger">
+        <span id="clearFlaggedSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        Clear All Flagged Events
+    </button>
+    <div id="clearFlaggedResult" class="alert mt-2 d-none"></div>
 </div>
+<script src="/js/adminActions.js"></script>
+<script>
+handleAdminAction({
+    btnId: 'clearFlaggedBtn',
+    spinnerId: 'clearFlaggedSpinner',
+    resultId: 'clearFlaggedResult',
+    fetchOptions: {
+        url: '/api/clear-flagged-events',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    },
+    confirmMsg: 'Are you sure you want to clear all flagged events? This cannot be undone.',
+    successMsg: 'All flagged events have been cleared.',
+    reloadOnSuccess: true
+});
+</script>
 </body>
 </html> 

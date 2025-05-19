@@ -1,0 +1,1 @@
+ALTER TABLE parking_events ADD COLUMN splitSuffix VARCHAR(64) DEFAULT NULL; 

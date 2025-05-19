@@ -7,8 +7,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(120deg, #232526 0%, #414345 100%);
-            color: #fff;
+            background: var(--bg-gradient);
+            color: var(--text-main);
             font-family: 'Inter', Arial, sans-serif;
             margin: 0;
             padding: 0;
@@ -20,8 +20,8 @@
             font-size: 2.8rem;
             font-weight: 700;
             letter-spacing: 2px;
-            color: #fff;
-            background: rgba(30, 41, 59, 0.85);
+            color: var(--text-main);
+            background: var(--header-bg);
             box-shadow: 0 2px 16px rgba(0,0,0,0.12);
         }
         .detections-grid {
@@ -32,29 +32,29 @@
             max-width: 100vw;
         }
         .detection-card {
-            background: rgba(30, 41, 59, 0.95);
+            background: var(--table-bg);
             border-radius: 18px;
-            box-shadow: 0 6px 32px rgba(0,0,0,0.18);
+            box-shadow: var(--shadow-main);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: stretch;
             min-height: 340px;
-            border: 2px solid #6366f1;
+            border: 2px solid var(--badge-primary);
             position: relative;
         }
         .detection-images {
             display: flex;
             gap: 0;
             width: 100%;
-            background: #18181b;
+            background: var(--table-row-alt);
         }
         .detection-images img {
             width: 50%;
             height: 220px;
             object-fit: cover;
-            background: #222;
-            border-right: 1px solid #232526;
+            background: var(--table-row-alt);
+            border-right: 1px solid var(--border-main);
         }
         .detection-images img:last-child {
             border-right: none;
@@ -81,25 +81,25 @@
         .meta-label {
             font-size: 1.1rem;
             font-weight: 500;
-            color: #a5b4fc;
+            color: var(--badge-primary);
         }
         .meta-value {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #fff;
+            color: var(--text-main);
         }
         .direction-badge {
             font-size: 1.1rem;
             font-weight: 600;
             padding: 4px 14px;
             border-radius: 8px;
-            background: #6366f1;
+            background: var(--badge-primary);
             color: #fff;
             margin-right: 8px;
         }
-        .direction-in { background: #22c55e; }
-        .direction-out { background: #ef4444; }
-        .direction-unknown { background: #6b7280; }
+        .direction-in { background: #22c55e !important; }
+        .direction-out { background: #ef4444 !important; }
+        .direction-unknown { background: #6b7280 !important; }
         .confidence-badge {
             font-size: 1.1rem;
             font-weight: 600;
@@ -113,12 +113,12 @@
             font-weight: 600;
             padding: 4px 14px;
             border-radius: 8px;
-            background: #818cf8;
+            background: var(--badge-primary);
             color: #fff;
         }
         .timestamp {
             font-size: 1.1rem;
-            color: #d1d5db;
+            color: var(--text-muted);
             font-weight: 500;
         }
         @media (max-width: 900px) {

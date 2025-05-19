@@ -18,9 +18,6 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/admin">Admin</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/admin/migrations">Migrations</a>
-                </li>
             </ul>
             <div class="d-flex align-items-center">
                 <select id="carParkSelector" class="form-select car-park-selector me-2" onchange="handleCarParkChange(this.value)">
@@ -33,6 +30,12 @@
                         <% }); %>
                     <% } %>
                 </select>
+                <button class="btn btn-outline-secondary me-2" id="fullScreenToggle" title="Toggle Full Screen" onclick="toggleFullScreen()">
+                    <i class="fa fa-expand" id="fullScreenIcon"></i>
+                </button>
+                <button class="btn btn-outline-secondary" id="darkModeToggle" title="Toggle Dark Mode" onclick="toggleDarkMode()">
+                    <i class="fa fa-moon" id="darkModeIcon"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -50,4 +53,38 @@
         const newUrl = `${currentPath}?${queryParams.toString()}`;
         window.location.href = newUrl;
     }
+    // Full screen toggle
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            document.getElementById('fullScreenIcon').classList.remove('fa-expand');
+            document.getElementById('fullScreenIcon').classList.add('fa-compress');
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                document.getElementById('fullScreenIcon').classList.remove('fa-compress');
+                document.getElementById('fullScreenIcon').classList.add('fa-expand');
+            }
+        }
+    }
+    // Dark mode toggle (global)
+    function setDarkMode(enabled) {
+        if (enabled) {
+            document.body.classList.add('dark-mode');
+            document.getElementById('darkModeIcon').classList.remove('fa-moon');
+            document.getElementById('darkModeIcon').classList.add('fa-sun');
+        } else {
+            document.body.classList.remove('dark-mode');
+            document.getElementById('darkModeIcon').classList.remove('fa-sun');
+            document.getElementById('darkModeIcon').classList.add('fa-moon');
+        }
+    }
+    function toggleDarkMode() {
+        const enabled = !document.body.classList.contains('dark-mode');
+        setDarkMode(enabled);
+        localStorage.setItem('darkMode', enabled ? '1' : '0');
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        setDarkMode(localStorage.getItem('darkMode') === '1');
+    });
 </script> 

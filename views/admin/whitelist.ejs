@@ -12,6 +12,10 @@
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWhitelistModal">
                     Add Vehicle
                 </button>
+                <button id="syncWhitelistBtn" class="btn btn-primary">
+                    <span id="syncWhitelistSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    Sync Whitelist
+                </button>
             </div>
         </div>
         <div class="card-body">
@@ -22,6 +26,7 @@
                     <br><strong>Description:</strong> <%= rule.description %>
                 <% } %>
             </div>
+            <div id="syncWhitelistResult" class="alert mt-2 d-none"></div>
             <div class="table-responsive">
                 <table class="table">
                     <thead>
@@ -131,9 +136,24 @@
     </div>
 </div>
 
+<script src="/js/adminActions.js"></script>
 <script>
 function deleteWhitelist(id) {
     document.getElementById('deleteWhitelistId').value = id;
     new bootstrap.Modal(document.getElementById('deleteWhitelistModal')).show();
 }
+
+handleAdminAction({
+    btnId: 'syncWhitelistBtn',
+    spinnerId: 'syncWhitelistSpinner',
+    resultId: 'syncWhitelistResult',
+    fetchOptions: {
+        url: '/admin/whitelist/sync',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    },
+    confirmMsg: 'Sync whitelist from Monday.com?',
+    successMsg: 'Whitelist synced.',
+    reloadOnSuccess: true
+});
 </script> 

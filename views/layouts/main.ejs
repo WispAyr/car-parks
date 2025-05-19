@@ -5,9 +5,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ANPR System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --bg-main: #f5f5f5;
+            --bg-gradient: linear-gradient(120deg, #f5f5f5 60%, #e0e7ff 100%);
+            --header-bg: #fff;
+            --table-bg: #fff;
+            --table-header-bg: #e0e7ff;
+            --table-row-alt: #f8fafc;
+            --table-row-hover: #e0e7ff33;
+            --chip-bg: #eef2ff;
+            --chip-color: #3730a3;
+            --chip-icon: #6366f1;
+            --badge-success: #22c55e;
+            --badge-primary: #6366f1;
+            --badge-danger: #ef4444;
+            --badge-secondary: #64748b;
+            --text-main: #333;
+            --text-muted: #888;
+            --border-main: #e0e7ff;
+            --shadow-main: 0 6px 32px rgba(99,102,241,0.10);
+            --modal-bg: #fff;
+        }
+        body.dark-mode {
+            --bg-main: #181a20;
+            --bg-gradient: linear-gradient(120deg, #23272f 60%, #373a47 100%);
+            --header-bg: #23272f;
+            --table-bg: #23272f;
+            --table-header-bg: #323544;
+            --table-row-alt: #23272f;
+            --table-row-hover: #323544;
+            --chip-bg: #323544;
+            --chip-color: #a5b4fc;
+            --chip-icon: #a5b4fc;
+            --badge-success: #22c55e;
+            --badge-primary: #818cf8;
+            --badge-danger: #ef4444;
+            --badge-secondary: #64748b;
+            --text-main: #e5e7eb;
+            --text-muted: #a1a1aa;
+            --border-main: #323544;
+            --shadow-main: 0 6px 32px rgba(30,41,59,0.18);
+            --modal-bg: #23272f;
+        }
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+        }
+        .navbar {
+            background: #23272f;
+            padding: 0 0 0 0;
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
         .navbar-brand {
-            font-weight: bold;
+            color: #fff !important;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-right: 32px;
+            text-decoration: none;
+        }
+        .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .navbar-nav a {
+            color: #e5e7eb;
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 1.15rem;
+            text-decoration: none;
+            transition: color 0.18s, background 0.18s;
+        }
+        .navbar-nav a.active, .navbar-nav a:hover {
+            color: #fff;
+            background: none;
+            border-bottom: 2.5px solid #6366f1;
+        }
+        .navbar-nav a:focus {
+            outline: none;
+            box-shadow: none;
         }
         .car-park-selector {
             min-width: 200px;
@@ -17,27 +102,57 @@
             margin: 0 auto;
             padding: 20px;
         }
+        .card, .card-body {
+            background: var(--table-bg) !important;
+            color: var(--text-main) !important;
+        }
+        .card-title, .card-text {
+            color: var(--text-main) !important;
+        }
         .card {
-            background: #fff;
             border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-main);
             margin-bottom: 20px;
         }
         .card-header {
-            background: #e0e7ff;
+            background: var(--table-header-bg);
             padding: 15px 20px;
             border-radius: 12px 12px 0 0;
             font-weight: 600;
         }
-        .card-body {
-            padding: 20px;
-        }
         .table {
             margin-bottom: 0;
+            background: var(--table-bg);
+            color: var(--text-main);
+        }
+        .table th {
+            background: var(--table-header-bg);
+            color: var(--text-main);
+        }
+        .table-striped > tbody > tr:nth-of-type(even) {
+            background: var(--table-row-alt);
         }
         .btn-icon {
             padding: 4px 8px;
             margin: 0 2px;
+        }
+        .dark-toggle {
+            position: absolute;
+            right: 32px;
+            top: 18px;
+            background: var(--table-header-bg);
+            border: 1.5px solid var(--border-main);
+            border-radius: 2em;
+            padding: 6px 18px;
+            color: var(--text-main);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            z-index: 1000;
+        }
+        .dark-toggle:hover {
+            background: var(--badge-primary);
+            color: #fff;
         }
     </style>
 </head>

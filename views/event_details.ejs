@@ -366,8 +366,7 @@
                                 <% } %>
                             </span>
                             <div class="mt-2">
-                                <strong>Whitelist Checked:</strong> <%= event.whitelistCheckedAt ? new Date(event.whitelistCheckedAt).toLocaleString() : 'Never' %><br>
-                                <strong>Payment Checked:</strong> <%= event.paymentCheckedAt ? new Date(event.paymentCheckedAt).toLocaleString() : 'Never' %>
+                                <!-- Removed Whitelist Checked and Payment Checked fields -->
                             </div>
                             <% if (event.status === 'whitelisted' && event.whitelistMatch) { %>
                                 <div class="alert alert-success mt-2">
@@ -390,7 +389,11 @@
                                 <div class="alert alert-danger mt-2">No valid payment or whitelist found for this event.</div>
                                 <button class="btn btn-outline-success mt-2" disabled>Record Payment</button>
                             <% } %>
-                            <button class="btn btn-outline-info mt-2" id="recheckStatusBtn"><i class="bi bi-arrow-repeat"></i> Re-check Status</button>
+                            <button class="btn btn-outline-info mt-2" id="recheckStatusBtn">
+                                <span id="recheckSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                <i class="bi bi-arrow-repeat"></i> Re-check Status
+                            </button>
+                            <div id="recheckError" class="alert alert-danger mt-2 d-none"></div>
                         </div>
                     </div>
                 </div>
@@ -559,7 +562,7 @@ function splitEventAt(eventId, detectionId) {
     .then(data => {
         if (data.success) {
             alert('Event split successfully!');
-            window.location.reload();
+            window.location.href = '/events/' + data.newEventId1;
         } else {
             alert('Error splitting event: ' + (data.error || 'Unknown error'));
         }
@@ -571,13 +574,32 @@ function splitEventAt(eventId, detectionId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     var btn = document.getElementById('recheckStatusBtn');
+    var spinner = document.getElementById('recheckSpinner');
+    var errorDiv = document.getElementById('recheckError');
     if (btn) {
         btn.onclick = async function() {
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            errorDiv.classList.add('d-none');
+            errorDiv.textContent = '';
             const eventId = '<%= event.id %>';
-            const res = await fetch(`/admin/events/${eventId}/finalize`, { method: 'POST' });
-            if (res.ok) window.location.reload();
-            else alert('Failed to re-check status');
-        };
+            try {
+                const res = await fetch(`/admin/events/${eventId}/finalize`, { method: 'POST' });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    errorDiv.textContent = data.error || 'Failed to re-check status';
+                    errorDiv.classList.remove('d-none');
+                }
+            } catch (err) {
+                errorDiv.textContent = err.message || 'Network error';
+                errorDiv.classList.remove('d-none');
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
     }
 });
 </script> 

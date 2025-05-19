@@ -1,0 +1,3 @@
+ALTER TABLE parking_events
+  ADD COLUMN flagged TINYINT(1) DEFAULT 0,
+  ADD COLUMN flagReason VARCHAR(255) DEFAULT NULL; 

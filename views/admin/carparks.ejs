@@ -242,6 +242,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/adminActions.js"></script>
     <script>
         function editCarPark(siteId, name, throughTrafficMinutes) {
             document.getElementById('editOriginalSiteId').value = siteId;
@@ -255,6 +256,26 @@
             document.getElementById('deleteSiteId').value = siteId;
             new bootstrap.Modal(document.getElementById('deleteCarParkModal')).show();
         }
+
+        handleAdminAction({
+            btnId: 'addCarparkBtn',
+            spinnerId: 'addCarparkSpinner',
+            resultId: 'addCarparkResult',
+            fetchOptions: {
+                url: '/admin/carparks/add',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('name')?.value,
+                    siteId: document.getElementById('siteId')?.value,
+                    throughTrafficMinutes: document.getElementById('throughTrafficMinutes')?.value,
+                    minEventDurationMinutes: document.getElementById('minEventDurationMinutes')?.value
+                })
+            },
+            confirmMsg: 'Add this car park?',
+            successMsg: 'Car park added.',
+            reloadOnSuccess: true
+        });
     </script>
 </body>
 </html> 
