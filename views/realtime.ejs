@@ -141,6 +141,28 @@
 </head>
 <body>
     <div class="wallboard-header">Live ANPR Detections</div>
+    
+    <!-- Car Park Filter -->
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-6 offset-md-3">
+                <form action="/realtime" method="GET" class="d-flex">
+                    <select name="siteId" class="form-select me-2">
+                        <option value="">All Car Parks</option>
+                        <% if (typeof carparks !== 'undefined' && carparks) { %>
+                            <% carparks.forEach(function(carpark) { %>
+                                <option value="<%= carpark.siteId %>" <%= selectedCarPark === carpark.siteId ? 'selected' : '' %>>
+                                    <%= carpark.name %>
+                                </option>
+                            <% }); %>
+                        <% } %>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <div class="detections-grid">
         <% detections.forEach(function(detection) { %>
             <div class="detection-card">
@@ -177,5 +199,50 @@
             </div>
         <% }); %>
     </div>
+    
+    <!-- Pagination -->
+    <% if (typeof totalPages !== 'undefined' && totalPages > 0) { %>
+    <div class="container mt-4 mb-5">
+        <div class="row">
+            <div class="col-md-6 offset-md-3">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        <% if (typeof page !== 'undefined' && page > 1) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="/realtime?page=<%= page-1 %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
+                                    Previous
+                                </a>
+                            </li>
+                        <% } else { %>
+                            <li class="page-item disabled">
+                                <span class="page-link">Previous</span>
+                            </li>
+                        <% } %>
+                        
+                        <% for(let i = 1; i <= totalPages; i++) { %>
+                            <li class="page-item <%= (typeof page !== 'undefined' && page === i) ? 'active' : '' %>">
+                                <a class="page-link" href="/realtime?page=<%= i %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
+                                    <%= i %>
+                                </a>
+                            </li>
+                        <% } %>
+                        
+                        <% if (typeof page !== 'undefined' && typeof totalPages !== 'undefined' && page < totalPages) { %>
+                            <li class="page-item">
+                                <a class="page-link" href="/realtime?page=<%= page+1 %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
+                                    Next
+                                </a>
+                            </li>
+                        <% } else { %>
+                            <li class="page-item disabled">
+                                <span class="page-link">Next</span>
+                            </li>
+                        <% } %>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <% } %>
 </body>
-</html> 
+</html>

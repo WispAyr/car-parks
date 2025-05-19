@@ -1,0 +1,101 @@
+<%- include('../partials/header') %>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <%- include('../partials/admin_nav') %>
+        </div>
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Event Generation</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Generate parking events from detection data. This process may take several minutes depending on the date range selected.
+                    </div>
+                    
+                    <form id="event-generation-form" class="mb-4">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start-date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start-date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end-date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end-date" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="clear-flagged-events">
+                            <label class="form-check-label" for="clear-flagged-events">
+                                Clear existing flagged events before processing
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="start-event-gen-btn">
+                            <i class="bi bi-play-circle"></i> Start Event Generation
+                        </button>
+                    </form>
+                    
+                    <div id="event-gen-status" class="d-none">
+                        <h6>Generation Progress</h6>
+                        <div class="progress mb-2" style="height: 25px;">
+                            <div id="event-gen-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <div id="event-gen-message" class="text-muted small"></div>
+                    </div>
+                    
+                    <div id="event-gen-results" class="mt-4 d-none">
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> Event generation completed successfully.
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="/admin/events" class="btn btn-outline-primary">
+                                <i class="bi bi-list"></i> View Events
+                            </a>
+                            <a href="/admin/flagged-events" class="btn btn-outline-warning">
+                                <i class="bi bi-flag"></i> View Flagged Events
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/eventGeneration.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates (today and yesterday)
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        document.getElementById('end-date').valueAsDate = today;
+        document.getElementById('start-date').valueAsDate = yesterday;
+        
+        // Handle form submission
+        document.getElementById('event-generation-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const clearFlaggedEvents = document.getElementById('clear-flagged-events').checked;
+            
+            // Show progress section
+            document.getElementById('event-gen-status').classList.remove('d-none');
+            document.getElementById('event-gen-results').classList.add('d-none');
+            document.getElementById('event-gen-message').textContent = 'Initializing event generation...';
+            
+            // Start the event generation process
+            startEventGeneration(startDate, endDate, clearFlaggedEvents);
+        });
+    });
+</script>
+
+<%- include('../partials/footer') %>

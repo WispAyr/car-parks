@@ -7,9 +7,20 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const methodOverride = require('method-override');
+const { eventGenerationQueue, eventGenerationEvents } = require('./eventGenerationQueue');
+const http = require('http');
+const socketio = require('socket.io');
+const { generateParkingEvents } = require('./eventGeneration');
+const pool = require('./dbPool');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
+
+// Helper function for VRM normalization
+function normalizeVRM(vrm) {
+    if (!vrm) return vrm;
+    return vrm.replace(/\s+/g, '').toUpperCase();
+}
 
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
@@ -24,385 +35,61 @@ app.use(bodyParser.json());
 // Disable ETag generation
 app.disable('etag');
 
-// Database connection pool
-const pool = mariadb.createPool({
-    host: '192.168.1.151',
-    user: 'root',
-    password: 'RBTeeyKM142!',
-    database: 'nocobase',
-    connectionLimit: 20,  // Increased from 10 to 20
-    connectTimeout: 10000,  // Increased from 5000 to 10000
-    acquireTimeout: 10000,  // Increased from 5000 to 10000
-    idleTimeout: 60000,
-    trace: false,
-    resetAfterUse: true
-});
-
 // Mount admin router
 const adminRouter = require('./routes/admin')(pool);
 app.use('/admin', adminRouter);
-
-// Function to normalize VRM
-function normalizeVRM(vrm) {
-    if (!vrm) return vrm;
-    // Remove all spaces and convert to uppercase
-    return vrm.replace(/\s+/g, '').toUpperCase();
-}
 
 // Add BigInt serialization support at the top of the file
 BigInt.prototype.toJSON = function() {
     return this.toString();
 };
 
-// VRM validation and matching functions
-function isValidVRM(vrm) {
-    if (!vrm || vrm === 'UNKNOWN') return false;
-    // Basic UK VRM format validation
-    return /^[A-Z0-9]{2,7}$/.test(vrm);
+// --- SOCKET.IO SETUP ---
+const server = http.createServer(app);
+const io = socketio(server);
+
+// Store for event generation jobs
+const eventGenerationJobs = {};
+
+// Broadcast job progress to clients
+function broadcastJobProgress(jobId, progress) {
+    io.emit('event-generation-progress', { jobId, progress });
 }
 
-function fuzzyVRMMatch(vrm1, vrm2) {
-    if (!vrm1 || !vrm2) return false;
-    if (vrm1 === vrm2) return true;
-    
-    // Handle common OCR errors
-    const commonErrors = {
-        '0': 'O',
-        '1': 'I',
-        '5': 'S',
-        '8': 'B'
-    };
-    
-    let vrm1Fixed = vrm1;
-    let vrm2Fixed = vrm2;
-    
-    Object.entries(commonErrors).forEach(([wrong, correct]) => {
-        vrm1Fixed = vrm1Fixed.replace(new RegExp(wrong, 'g'), correct);
-        vrm2Fixed = vrm2Fixed.replace(new RegExp(wrong, 'g'), correct);
+// Listen for BullMQ job progress events
+(async () => {
+    eventGenerationEvents.on('progress', ({ jobId, data }) => {
+        broadcastJobProgress(jobId, data);
     });
-    
-    return vrm1Fixed === vrm2Fixed;
-}
-
-function isLikelyThroughTraffic(detection, previousDetections) {
-    // If we see multiple detections in quick succession
-    const recentDetections = previousDetections.filter(d => 
-        Math.abs(new Date(d.timestamp) - new Date(detection.timestamp)) < 300000 // 5 minutes
-    );
-    return recentDetections.length > 1;
-}
-
-// Helper function to process buffer of detections
-async function processBuffer(siteId, VRM, buffer, throughLimit, minEventDuration, entriesByVRM) {
-    // Sort buffer by timestamp
-    buffer.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    console.log(`Processing buffer for ${VRM} at ${siteId}:`, {
-        bufferSize: buffer.length,
-        throughLimit,
-        minEventDuration
+    eventGenerationEvents.on('completed', ({ jobId }) => {
+        broadcastJobProgress(jobId, 100);
     });
-    const events = [];
-    let i = 0;
-    while (i < buffer.length) {
-        const entry = buffer[i];
-        if (!isValidVRM(VRM)) {
-            console.log(`Invalid VRM ${VRM} at ${siteId}, skipping`);
-            i++;
-            continue;
-        }
-        if (isLikelyThroughTraffic(entry, buffer)) {
-            console.log(`Likely through traffic for ${VRM} at ${siteId}, skipping`);
-            i++;
-            continue;
-        }
-        let exit = null;
-        let j = i + 1;
-        while (j < buffer.length) {
-            const potentialExit = buffer[j];
-            if (fuzzyVRMMatch(VRM, potentialExit.VRM)) {
-                const duration = (new Date(potentialExit.timestamp) - new Date(entry.timestamp)) / (1000 * 60);
-                if (duration >= minEventDuration) {
-                    exit = potentialExit;
-                    break;
-                }
-            }
-            j++;
-        }
-        if (exit) {
-            const entryTime = new Date(entry.timestamp);
-            const exitTime = new Date(exit.timestamp);
-            const duration = (exitTime - entryTime) / (1000 * 60);
-            console.log(`Found event for ${VRM}:`, {
-                entryTime: entryTime.toISOString(),
-                exitTime: exitTime.toISOString(),
-                duration: duration.toFixed(1),
-                entryCamera: entry.cameraID,
-                exitCamera: exit.cameraID
-            });
-            const isThroughTraffic = duration <= throughLimit;
-            if (duration < minEventDuration) {
-                console.log(`Skipping event for ${VRM} at ${siteId} because duration ${duration.toFixed(1)} minutes is below minimum threshold of ${minEventDuration} minutes.`);
-                i = j + 1;
-                continue;
-            }
-            events.push({
-                siteId: siteId,
-                VRM: VRM,
-                entryTime: entry.timestamp,
-                exitTime: exit.timestamp,
-                durationMinutes: Math.round(duration * 10) / 10,
-                throughTraffic: isThroughTraffic,
-                entryDetectionId: entry.detectionId,
-                exitDetectionId: exit.detectionId,
-                entryCameraId: entry.cameraID,
-                exitCameraId: exit.cameraID
-            });
-            i = j + 1;
-        } else if (entry.isEntry) {
-            console.log(`No exit found for ${VRM} at ${siteId}, marking as still parked`);
-            events.push({
-                siteId: siteId,
-                VRM: VRM,
-                entryTime: entry.timestamp,
-                exitTime: null,
-                durationMinutes: null,
-                throughTraffic: false,
-                entryDetectionId: entry.detectionId,
-                exitDetectionId: null,
-                entryCameraId: entry.cameraID,
-                exitCameraId: null
-            });
-            i++;
-        } else {
-            // Unpaired exit, try to find a missed entry within the last 30 minutes using in-memory entriesByVRM
-            const exitTime = new Date(entry.timestamp);
-            let foundEntry = null;
-            const lookbackMins = 30;
-            const lookbackStart = new Date(exitTime.getTime() - lookbackMins * 60 * 1000);
-            const possibleEntries = (entriesByVRM[normalizeVRM(VRM)] || []).filter(det => {
-                const ts = new Date(det.timestamp);
-                return ts >= lookbackStart && ts <= exitTime;
-            });
-            for (const det of possibleEntries) {
-                if (fuzzyVRMMatch(VRM, det.VRM)) {
-                    foundEntry = det;
-                    break;
-                }
-            }
-            if (foundEntry) {
-                const duration = (exitTime - new Date(foundEntry.timestamp)) / (1000 * 60);
-                events.push({
-                    siteId: siteId,
-                    VRM: VRM,
-                    entryTime: foundEntry.timestamp,
-                    exitTime: entry.timestamp,
-                    durationMinutes: Math.round(duration * 10) / 10,
-                    throughTraffic: duration <= throughLimit,
-                    entryDetectionId: foundEntry.detectionId || foundEntry.id,
-                    exitDetectionId: entry.detectionId,
-                    entryCameraId: foundEntry.cameraID,
-                    exitCameraId: entry.cameraID
-                });
-                console.log(`Recovered missed entry for ${VRM} at ${siteId}: paired entry ${foundEntry.detectionId || foundEntry.id} with exit ${entry.detectionId}`);
-            } else {
-                console.log(`Unpaired exit for ${VRM} at ${siteId}, skipping and flagging`);
-                // Optionally, collect flagged events in-memory for later bulk insert
-            }
-            i++;
-        }
-    }
-    return events;
-}
+    eventGenerationEvents.on('failed', ({ jobId, failedReason }) => {
+        io.emit('event-generation-failed', { jobId, failedReason });
+    });
+})();
 
-// Add this helper near the top of the file
-function safeToISOString(val, fallback) {
-    if (!val) return fallback;
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? fallback : d.toISOString();
-}
+// --- API ENDPOINTS FOR EVENT GENERATION ---
 
-// Function to generate parking events
-async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = false) {
-    console.log('[DEBUG] Starting event generation process...');
-    let conn;
-    const allEvents = [];
-    try {
-        conn = await pool.getConnection();
-        
-        // Clear existing events if requested
-        if (clearFlaggedEvents) {
-            console.log('[DEBUG] Clearing existing events as requested...');
-            await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-            await conn.query('TRUNCATE TABLE parking_events');
-            await conn.query('SET FOREIGN_KEY_CHECKS = 1');
-        }
+// Start event generation (POST)
+app.post('/api/start-event-generation', async (req, res) => {
+    const { startDate, endDate, clearFlaggedEvents } = req.body;
+    const job = await eventGenerationQueue.add('generate', {
+        startDate, endDate, clearFlaggedEvents
+    });
+    res.json({ jobId: job.id });
+});
 
-        // Get all car parks
-        const carParks = await conn.query('SELECT * FROM carparks');
-        console.log(`[DEBUG] Found ${carParks.length} car parks to process`);
+// Get event generation job status
+app.get('/api/event-generation-status/:jobId', async (req, res) => {
+    const job = await eventGenerationQueue.getJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    const state = await job.getState();
+    const progress = job.progress;
+    res.json({ state, progress, result: job.returnvalue, failedReason: job.failedReason });
+});
 
-        // Process each car park sequentially
-        for (const carPark of carParks) {
-            const start = safeToISOString(startDate, '1970-01-01T00:00:00Z');
-            const end = safeToISOString(endDate, '2100-01-01T00:00:00Z');
-            console.log(`[DEBUG] Using date range: ${start} to ${end}`);
-            // Get unprocessed detections for this car park
-            const detections = await getUnprocessedDetections(carPark.siteId, start, end);
-            console.log(`[DEBUG] Found ${detections.length} unprocessed detections for ${carPark.name}`);
-
-            if (detections.length === 0) continue;
-
-            // Group detections by normalized VRM
-            const detectionsByVRM = {};
-            for (const detection of detections) {
-                const normalizedVRM = normalizeVRM(detection.VRM);
-                if (!detectionsByVRM[normalizedVRM]) {
-                    detectionsByVRM[normalizedVRM] = [];
-                }
-                detectionsByVRM[normalizedVRM].push(detection);
-            }
-
-            // Process each VRM's detections
-            const events = [];
-            for (const [vrm, vrmDetections] of Object.entries(detectionsByVRM)) {
-                const processedEvents = await processBuffer(
-                    carPark.siteId,
-                    vrm,
-                    vrmDetections,
-                    carPark.throughLimit || 10,
-                    carPark.minEventDurationMinutes || 1,
-                    detectionsByVRM
-                );
-                if (Array.isArray(processedEvents)) {
-                    events.push(...processedEvents);
-                }
-            }
-
-            // Bulk insert events for this car park
-            if (events.length > 0) {
-                console.log(`[DEBUG] Bulk inserting ${events.length} events for ${carPark.name}`);
-                const batchSize = 100;
-                for (let i = 0; i < events.length; i += batchSize) {
-                    const batch = events.slice(i, i + batchSize);
-                    const values = batch.map(event => [
-                        event.siteId,
-                        event.VRM,
-                        new Date(event.entryTime).toISOString().slice(0, 19).replace('T', ' '),
-                        event.exitTime ? new Date(event.exitTime).toISOString().slice(0, 19).replace('T', ' ') : null,
-                        event.durationMinutes,
-                        event.throughTraffic ? 1 : 0,
-                        event.entryDetectionId,
-                        event.exitDetectionId,
-                        event.entryCameraId,
-                        event.exitCameraId
-                    ]);
-                    
-                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
-                    const query = `
-                        INSERT INTO parking_events 
-                        (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
-                        VALUES ${placeholders}
-                        ON DUPLICATE KEY UPDATE
-                            exitTime = VALUES(exitTime),
-                            durationMinutes = VALUES(durationMinutes),
-                            throughTraffic = VALUES(throughTraffic),
-                            exitDetectionId = VALUES(exitDetectionId),
-                            exitCameraId = VALUES(exitCameraId)
-                    `;
-                    
-                    await conn.query(query, values.flat());
-                }
-                console.log(`[DEBUG] Successfully inserted ${events.length} events for ${carPark.name}`);
-            }
-
-            // Mark detections as processed
-            const detectionIds = detections.map(d => d.id);
-            if (detectionIds.length > 0) {
-                await conn.query('UPDATE anpr_detections SET processed = TRUE WHERE id IN (?)', [detectionIds]);
-            }
-            allEvents.push(...events);
-        }
-
-        return allEvents;
-    } catch (err) {
-        console.error('Error generating parking events:', err);
-        throw err;
-    } finally {
-        if (conn) conn.release();
-    }
-}
-
-async function getUnprocessedDetections(carParkId, startDate, endDate) {
-    let conn;
-    try {
-        conn = await pool.getConnection();
-        console.log(`[DEBUG] Getting unprocessed detections for car park ${carParkId} between ${startDate} and ${endDate}`);
-        
-        // Debug: print total and unprocessed detections for this car park
-        const totalRows = await conn.query(
-            'SELECT COUNT(*) as total FROM anpr_detections d JOIN cameras c ON d.cameraID = c.name WHERE c.carParkId = ?',
-            [carParkId]
-        );
-        const total = totalRows[0]?.total || 0;
-        const unprocessedRows = await conn.query(
-            'SELECT COUNT(*) as unprocessed FROM anpr_detections d JOIN cameras c ON d.cameraID = c.name WHERE c.carParkId = ? AND d.processed = FALSE',
-            [carParkId]
-        );
-        const unprocessed = unprocessedRows[0]?.unprocessed || 0;
-        console.log(`[DEBUG] CarPark ${carParkId}: total detections = ${total}, unprocessed = ${unprocessed}`);
-        
-        // Debug: print a few unprocessed detection IDs
-        const sample = await conn.query(
-            'SELECT d.id, d.cameraID, d.VRM, d.timestamp, d.direction FROM anpr_detections d JOIN cameras c ON d.cameraID = c.name WHERE c.carParkId = ? AND d.processed = FALSE LIMIT 5',
-            [carParkId]
-        );
-        if (sample && sample.length) {
-            console.log(`[DEBUG] Sample unprocessed detections for ${carParkId}:`, sample.map(r => ({
-                id: r.id,
-                cameraID: r.cameraID,
-                VRM: r.VRM,
-                timestamp: r.timestamp,
-                direction: r.direction
-            })));
-        }
-        
-        const query = `
-            SELECT d.*, c.direction as cameraDir
-            FROM anpr_detections d
-            JOIN cameras c ON d.cameraID = c.name
-            WHERE c.carParkId = ?
-            AND d.timestamp BETWEEN ? AND ?
-            AND d.processed = FALSE
-            ORDER BY d.timestamp ASC
-        `;
-        const rows = await conn.query(query, [carParkId, startDate, endDate]);
-        console.log(`[DEBUG] Found ${rows.length} unprocessed detections for car park ${carParkId}`);
-        return rows || [];
-    } catch (err) {
-        console.error('Error in getUnprocessedDetections:', err);
-        return [];
-    } finally {
-        if (conn) conn.release();
-    }
-}
-
-async function markDetectionAsProcessed(detectionId) {
-    let conn;
-    try {
-        conn = await pool.getConnection();
-        const query = `
-            UPDATE anpr_detections
-            SET processed = TRUE,
-                processed_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `;
-        await conn.query(query, [detectionId]);
-    } catch (err) {
-        console.error('Error in markDetectionAsProcessed:', err);
-    } finally {
-        if (conn) conn.release();
-    }
-}
+// --- MODIFY generateParkingEvents TO SUPPORT PROGRESS CALLBACK ---
 
 // Route to display ANPR detections (real-time view) - now at /realtime
 app.get('/realtime', async (req, res) => {
@@ -451,7 +138,9 @@ app.get('/realtime', async (req, res) => {
             ? 'SELECT COUNT(*) as count FROM anpr_detections WHERE cameraID IN (SELECT name FROM cameras WHERE carParkId = ?)' 
             : 'SELECT COUNT(*) as count FROM anpr_detections',
             selectedCarPark ? [selectedCarPark] : []);
-        const total = Number(countResult[0].count);
+        
+        // Ensure count is a valid number
+        const total = countResult && countResult[0] && typeof countResult[0].count !== 'undefined' ? Number(countResult[0].count) : 0;
         const totalPages = Math.ceil(total / limit);
 
         res.render('realtime', {
@@ -664,9 +353,26 @@ app.get('/all-events', async (req, res) => {
     }
 });
 
-// Keep the existing root route for backward compatibility
+// Main dashboard route
 app.get('/', async (req, res) => {
-    res.redirect('/events');
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        // Get all car parks for filter dropdown
+        const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
+        // Redirect to events page which has the proper dashboard UI
+        res.render('events', { 
+            carparks, 
+            selectedCarPark: '', 
+            events: [],
+            tab: 'completed' // Add the tab parameter for proper navigation highlighting
+        });
+    } catch (err) {
+        console.error('Error loading dashboard:', err);
+        res.status(500).render('error', { message: 'Error loading dashboard' });
+    } finally {
+        if (conn) conn.release();
+    }
 });
 
 // Route to serve blob images
@@ -779,7 +485,12 @@ app.get('/api/parking-events', async (req, res) => {
     }
 });
 
-// Endpoint to generate events retrospectively
+// Admin page for event generation UI
+app.get('/admin/event-generation', (req, res) => {
+    res.render('admin/event_generation');
+});
+
+// Legacy endpoint to generate events retrospectively
 app.get('/admin/generate-events', async (req, res) => {
     let conn;
     try {
@@ -835,6 +546,13 @@ app.post('/admin/generate-events', async (req, res) => {
         res.status(500).json({ error: 'Failed to generate events' });
     }
 });
+
+// Start the server
+server.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    console.log(`Access the application at http://localhost:${port}`);
+});
+
 
 // Automated PCN generation job (runs every 5 minutes)
 setInterval(async () => {
@@ -1383,9 +1101,7 @@ app.post('/admin/purge-events', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+// Server is already started at line 526
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -2180,6 +1896,93 @@ app.post('/api/reset-processed-flags', async (req, res) => {
     } finally {
         if (conn) conn.release();
     }
+});
+
+// API endpoint to start event generation process
+app.post('/api/start-event-generation', async (req, res) => {
+    try {
+        const { startDate, endDate, clearFlaggedEvents } = req.body;
+        const jobId = Date.now().toString(); // Simple job ID generation
+        
+        // Store job in memory (in production, use a proper job queue)
+        eventGenerationJobs[jobId] = {
+            id: jobId,
+            state: 'running',
+            progress: 0,
+            startDate,
+            endDate,
+            clearFlaggedEvents
+        };
+        
+        // Start the generation process asynchronously
+        process.nextTick(async () => {
+            try {
+                let conn;
+                try {
+                    conn = await pool.getConnection();
+                    
+                    // Optionally clear flagged events
+                    if (clearFlaggedEvents) {
+                        io.emit('event-generation-progress', { jobId, progress: 5, message: 'Clearing flagged events...' });
+                        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+                        await conn.query('TRUNCATE TABLE flagged_events');
+                        await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+                    }
+                    
+                    io.emit('event-generation-progress', { jobId, progress: 10, message: 'Starting event generation...' });
+                    
+                    // Generate events with progress updates
+                    const events = await generateParkingEvents(startDate, endDate, clearFlaggedEvents, (progress) => {
+                        // Calculate overall progress (10-90%)
+                        const overallProgress = Math.floor(10 + (progress * 80));
+                        eventGenerationJobs[jobId].progress = overallProgress;
+                        io.emit('event-generation-progress', { jobId, progress: overallProgress });
+                    });
+                    
+                    io.emit('event-generation-progress', { jobId, progress: 100, message: 'Completed' });
+                    eventGenerationJobs[jobId].state = 'completed';
+                    eventGenerationJobs[jobId].progress = 100;
+                    
+                    // Clean up job after some time
+                    setTimeout(() => {
+                        delete eventGenerationJobs[jobId];
+                    }, 3600000); // Remove after 1 hour
+                    
+                } catch (error) {
+                    console.error('Event generation failed:', error);
+                    eventGenerationJobs[jobId].state = 'failed';
+                    eventGenerationJobs[jobId].failedReason = error.message;
+                    io.emit('event-generation-failed', { jobId, failedReason: error.message });
+                } finally {
+                    if (conn) conn.release();
+                }
+            } catch (error) {
+                console.error('Unhandled error in event generation:', error);
+            }
+        });
+        
+        res.json({ success: true, jobId });
+    } catch (error) {
+        console.error('Error starting event generation:', error);
+        res.status(500).json({ error: 'Failed to start event generation' });
+    }
+});
+
+// API endpoint to check event generation status
+app.get('/api/event-generation-status/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    const job = eventGenerationJobs[jobId];
+    
+    if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    res.json({
+        id: job.id,
+        state: job.state,
+        progress: job.progress,
+        failedReason: job.failedReason
+    });
 });
 
 // API endpoint to regenerate events (for admin dashboard)
