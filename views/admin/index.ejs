@@ -85,6 +85,18 @@
             <div id="recheckAllResult" class="alert alert-info mt-2 d-none"></div>
             <div id="recheckAllError" class="alert alert-danger mt-2 d-none"></div>
         </div>
+        <div class="admin-card">
+            <div class="admin-card-icon"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+            <div class="admin-card-title">Import Payments</div>
+            <div class="admin-card-desc">Upload and import payment data from Matrix parking machines (Excel or CSV). Assign payments to a car park and match VRMs to events.</div>
+            <a href="/admin/import-payments" class="btn btn-success"><i class="bi bi-upload"></i> Import Payments</a>
+        </div>
+        <div class="admin-card">
+            <div class="admin-card-icon"><i class="bi bi-credit-card"></i></div>
+            <div class="admin-card-title">Manage Payments</div>
+            <div class="admin-card-desc">View, edit, bulk delete, and reassign payment records. Filter and search all payment data.</div>
+            <a href="/admin/manage-payments" class="btn btn-primary"><i class="bi bi-credit-card"></i> Manage Payments</a>
+        </div>
     </div>
     <div class="section-header mt-5 mb-3" style="font-size:1.2rem;font-weight:700;color:#6366f1;letter-spacing:1px;">System Actions</div>
     <div class="row g-3 mb-4">
@@ -116,6 +128,27 @@
             </div>
         </div>
     </div>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <h5 class="card-title">Console Log (Real-Time)</h5>
+                    <p class="card-text">View the live server log output for debugging and monitoring.</p>
+                    <a href="/admin/logs" class="btn btn-outline-primary mt-auto"><i class="bi bi-terminal"></i> View Console Log</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-danger">
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                    <i class="bi bi-exclamation-triangle display-4 text-danger mb-3"></i>
+                    <h5 class="card-title">Unknown Events Breakdown</h5>
+                    <p class="card-text text-center">View a breakdown of unknown events per site and camera to help diagnose detection issues.</p>
+                    <a href="/admin/unknown-events" class="btn btn-danger mt-2">View Unknown Events</a>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="/js/adminActions.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -135,7 +168,7 @@
                     const res = await fetch('/admin/events/recheck-all', { method: 'POST' });
                     if (res.ok) {
                         const data = await res.json();
-                        resultDiv.textContent = `Rechecked ${data.summary.total} events: ${data.summary.whitelisted} whitelisted, ${data.summary.paid} paid, ${data.summary.unpaid} unpaid.`;
+                        resultDiv.textContent = `Rechecked ${data.summary.total} events: ${data.summary.whitelisted} whitelisted, ${data.summary.paid} paid, ${data.summary.overstay} overstay, ${data.summary.unpaid} unpaid.`;
                         resultDiv.classList.remove('d-none');
                     } else {
                         const data = await res.json().catch(() => ({}));

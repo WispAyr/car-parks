@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unknown Events Breakdown - ANPR Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid mt-4" style="max-width: 1400px;">
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+            <h2 class="fw-bold text-primary mb-0">Unknown Events Breakdown</h2>
+            <a href="/admin" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Admin Dashboard</a>
+        </div>
+        <div class="row mb-4 g-3">
+            <div class="col-md-4">
+                <div class="card shadow-sm border-info">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-info mb-2"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div class="fw-bold">Total Unknown Events (30d)</div>
+                        <div class="fs-3 text-info mb-1">
+                            <%= unknownEventsByCamera.reduce((sum, ev) => sum + Number(ev.total), 0) %>
+                        </div>
+                        <div class="text-muted">Last 30 days</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-danger">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-danger mb-2"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div class="fw-bold">Total Unknown Events (24h)</div>
+                        <div class="fs-3 text-danger mb-1">
+                            <%= unknownEventsByCamera24h.reduce((sum, ev) => sum + Number(ev.total), 0) %>
+                        </div>
+                        <div class="text-muted">Last 24 hours</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm border-success">
+                    <div class="card-body text-center">
+                        <div class="display-6 text-success mb-2"><i class="bi bi-camera-video"></i></div>
+                        <div class="fw-bold">Cameras with Unknowns (30d)</div>
+                        <div class="fs-3 text-success mb-1">
+                            <%= unknownEventsByCamera.length %>
+                        </div>
+                        <div class="text-muted">Active in last 30 days</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Unknown Events by Camera (Last 30 Days)</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="unknownEventsByCameraChart" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">Unknown Events by Camera (Last 24 Hours)</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="unknownEventsByCamera24hChart" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Trend Chart (Total Unknown Events per Day)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="unknownEventsChart" height="100"></canvas>
+            </div>
+        </div>
+        <div class="section-header mt-5 mb-3" style="font-size:1.2rem;font-weight:700;color:#6366f1;letter-spacing:1px;">Detailed Tables</div>
+        <ul class="nav nav-tabs mb-3" id="unknownEventsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pretty-tab" data-bs-toggle="tab" data-bs-target="#pretty" type="button" role="tab" aria-controls="pretty" aria-selected="true">Pretty Summary Table</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab" aria-controls="raw" aria-selected="false">Raw Data Table</button>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="pretty" role="tabpanel" aria-labelledby="pretty-tab">
+                <div class="alert alert-info">This table is linter-friendly and recommended for most users.</div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Summary Table</h5>
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-bordered table-hover" id="prettyUnknownEventsTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Site</th>
+                                    <th>Camera</th>
+                                    <th>Unknown Events</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (unknownEventsDisplay && unknownEventsDisplay.length > 0) { %>
+                                    <% unknownEventsDisplay.forEach(function(ev) { %>
+                                        <tr>
+                                            <td><%= ev.day %></td>
+                                            <td><%= ev.siteName %></td>
+                                            <td><%= ev.cameraName %></td>
+                                            <td><%= ev.count %></td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr><td colspan="4" class="text-center text-muted">No unknown events in the last 30 days</td></tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="raw" role="tabpanel" aria-labelledby="raw-tab">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Raw Data Table</h5>
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-bordered table-hover" id="rawUnknownEventsTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Site ID</th>
+                                    <th>Camera Name</th>
+                                    <th>Entry Camera ID</th>
+                                    <th>Unknown Events</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (unknownEvents && unknownEvents.length > 0) { %>
+                                    <% unknownEvents.forEach(function(ev) { %>
+                                        <tr>
+                                            <td><%= ev.day %></td>
+                                            <td><%= ev.siteId %></td>
+                                            <td><%= ev.cameraName || '-' %></td>
+                                            <td><%= ev.entryCameraId || '-' %></td>
+                                            <td><%= ev.count %></td>
+                                        </tr>
+                                    <% }); %>
+                                <% } else { %>
+                                    <tr><td colspan="5" class="text-center text-muted">No unknown events in the last 30 days</td></tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        // Prepare data for the chart
+        const unknownEvents = <%- JSON.stringify(unknownEvents) %>;
+        // Group by day
+        const dayCounts = {};
+        unknownEvents.forEach(function(ev) {
+            if (!dayCounts[ev.day]) dayCounts[ev.day] = 0;
+            dayCounts[ev.day] += ev.count;
+        });
+        const chartLabels = Object.keys(dayCounts).sort();
+        const chartData = chartLabels.map(function(day) { return dayCounts[day]; });
+        // Render chart
+        if (document.getElementById('unknownEventsChart')) {
+            new Chart(document.getElementById('unknownEventsChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Unknown Events',
+                        data: chartData,
+                        borderColor: 'rgba(220,53,69,0.8)',
+                        backgroundColor: 'rgba(220,53,69,0.2)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { title: { display: true, text: 'Unknown Events' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+        // Bar chart for unknown events by camera (30d)
+        const unknownEventsByCamera = <%- JSON.stringify(unknownEventsByCamera) %>;
+        if (document.getElementById('unknownEventsByCameraChart')) {
+            const cameraLabels = unknownEventsByCamera.map(ev => `${ev.cameraName} (${ev.siteId})`);
+            const cameraTotals = unknownEventsByCamera.map(ev => ev.total);
+            new Chart(document.getElementById('unknownEventsByCameraChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: cameraLabels,
+                    datasets: [{
+                        label: 'Unknown Events (30d)',
+                        data: cameraTotals,
+                        backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Camera (Site)' }, ticks: { autoSkip: false, maxRotation: 60, minRotation: 30 } },
+                        y: { title: { display: true, text: 'Unknown Events (30d)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+        // Bar chart for unknown events by camera (24h)
+        const unknownEventsByCamera24h = <%- JSON.stringify(unknownEventsByCamera24h) %>;
+        if (document.getElementById('unknownEventsByCamera24hChart')) {
+            const cameraLabels24h = unknownEventsByCamera24h.map(ev => `${ev.cameraName} (${ev.siteId})`);
+            const cameraTotals24h = unknownEventsByCamera24h.map(ev => ev.total);
+            new Chart(document.getElementById('unknownEventsByCamera24hChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: cameraLabels24h,
+                    datasets: [{
+                        label: 'Unknown Events (24h)',
+                        data: cameraTotals24h,
+                        backgroundColor: 'rgba(220,53,69,0.7)',
+                        borderColor: 'rgba(220,53,69,1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Camera (Site)' }, ticks: { autoSkip: false, maxRotation: 60, minRotation: 30 } },
+                        y: { title: { display: true, text: 'Unknown Events (24h)' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+        // DataTables initialization for sorting
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.jQuery) {
+                $('#prettyUnknownEventsTable').DataTable({
+                    order: [[0, 'desc'], [1, 'asc'], [2, 'asc']],
+                    pageLength: 25,
+                    language: { search: "Search:" }
+                });
+                $('#rawUnknownEventsTable').DataTable({
+                    order: [[0, 'desc'], [1, 'asc'], [2, 'asc']],
+                    pageLength: 25,
+                    language: { search: "Search:" }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

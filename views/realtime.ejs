@@ -5,122 +5,214 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live ANPR Detections - NOC Wallboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4338ca;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #fbbf24;
+            --bg-dark: #18181b;
+            --card-bg: #232336;
+            --text-light: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #2d2d44;
+        }
+
         body {
-            background: var(--bg-gradient);
-            color: var(--text-main);
+            background: var(--bg-dark);
+            color: var(--text-light);
             font-family: 'Inter', Arial, sans-serif;
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            overflow-x: hidden;
         }
+
         .wallboard-header {
             text-align: center;
-            padding: 32px 0 16px 0;
+            padding: 24px 0;
             font-size: 2.8rem;
             font-weight: 700;
             letter-spacing: 2px;
-            color: var(--text-main);
-            background: var(--header-bg);
-            box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+            color: var(--text-light);
+            background: var(--card-bg);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
+
         .detections-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-            gap: 32px;
-            padding: 32px 48px 48px 48px;
+            gap: 24px;
+            padding: 24px;
             max-width: 100vw;
         }
+
         .detection-card {
-            background: var(--table-bg);
-            border-radius: 18px;
-            box-shadow: var(--shadow-main);
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: stretch;
             min-height: 340px;
-            border: 2px solid var(--badge-primary);
+            border: 2px solid var(--border-color);
             position: relative;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideIn 0.5s ease forwards;
         }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .detection-card.new {
+            animation: highlightNew 2s ease;
+        }
+
+        @keyframes highlightNew {
+            0% { transform: scale(1); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+            10% { transform: scale(1.02); box-shadow: 0 8px 32px rgba(99,102,241,0.4); }
+            20% { transform: scale(1); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+            100% { transform: scale(1); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+        }
+
         .detection-images {
             display: flex;
             gap: 0;
             width: 100%;
-            background: var(--table-row-alt);
+            background: var(--bg-dark);
+            position: relative;
         }
+
         .detection-images img {
             width: 50%;
             height: 220px;
             object-fit: cover;
-            background: var(--table-row-alt);
-            border-right: 1px solid var(--border-main);
+            background: var(--bg-dark);
+            border-right: 1px solid var(--border-color);
+            transition: transform 0.3s ease;
         }
+
+        .detection-images img:hover {
+            transform: scale(1.05);
+        }
+
         .detection-images img:last-child {
             border-right: none;
         }
+
         .detection-info {
-            padding: 18px 22px 12px 22px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            background: var(--card-bg);
         }
+
         .vrm {
-            font-size: 2.1rem;
+            font-size: 2.4rem;
             font-weight: 700;
             letter-spacing: 2px;
-            color: #fbbf24;
-            text-shadow: 0 2px 8px #000a;
+            color: var(--warning);
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            margin: 0;
         }
+
         .meta-row {
             display: flex;
-            gap: 18px;
+            gap: 12px;
             flex-wrap: wrap;
             align-items: center;
         }
-        .meta-label {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--badge-primary);
-        }
-        .meta-value {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-main);
-        }
+
         .direction-badge {
             font-size: 1.1rem;
             font-weight: 600;
-            padding: 4px 14px;
+            padding: 6px 16px;
             border-radius: 8px;
-            background: var(--badge-primary);
             color: #fff;
-            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .direction-in { background: #22c55e !important; }
-        .direction-out { background: #ef4444 !important; }
-        .direction-unknown { background: #6b7280 !important; }
+
+        .direction-in { background: var(--success); }
+        .direction-out { background: var(--danger); }
+        .direction-unknown { background: var(--text-muted); }
+
         .confidence-badge {
             font-size: 1.1rem;
             font-weight: 600;
-            padding: 4px 14px;
+            padding: 6px 16px;
             border-radius: 8px;
-            background: #fbbf24;
+            background: var(--warning);
             color: #232526;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+
         .camera-badge {
             font-size: 1.1rem;
             font-weight: 600;
-            padding: 4px 14px;
+            padding: 6px 16px;
             border-radius: 8px;
-            background: var(--badge-primary);
+            background: var(--primary);
             color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+
         .timestamp {
             font-size: 1.1rem;
             color: var(--text-muted);
             font-weight: 500;
         }
+
+        .car-park-filter {
+            position: sticky;
+            top: 100px;
+            z-index: 90;
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 12px;
+            margin: 0 24px 24px 24px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+
+        .car-park-filter select {
+            background: var(--bg-dark);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+        }
+
+        .car-park-filter select:focus {
+            background: var(--bg-dark);
+            color: var(--text-light);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.25rem rgba(99,102,241,0.25);
+        }
+
+        .car-park-filter .btn-primary {
+            background: var(--primary);
+            border: none;
+        }
+
+        .car-park-filter .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
         @media (max-width: 900px) {
             .detections-grid {
                 padding: 12px;
@@ -133,37 +225,58 @@
                 height: 120px;
             }
         }
+
+        /* Loading animation */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-light);
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
-    <script>
-        // Auto-refresh every 10 seconds
-        setTimeout(() => { window.location.reload(); }, 10000);
-    </script>
 </head>
 <body>
-    <div class="wallboard-header">Live ANPR Detections</div>
-    
-    <!-- Car Park Filter -->
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-6 offset-md-3">
-                <form action="/realtime" method="GET" class="d-flex">
-                    <select name="siteId" class="form-select me-2">
-                        <option value="">All Car Parks</option>
-                        <% if (typeof carparks !== 'undefined' && carparks) { %>
-                            <% carparks.forEach(function(carpark) { %>
-                                <option value="<%= carpark.siteId %>" <%= selectedCarPark === carpark.siteId ? 'selected' : '' %>>
-                                    <%= carpark.name %>
-                                </option>
-                            <% }); %>
-                        <% } %>
-                    </select>
-                    <button type="submit" class="btn btn-primary">Filter</button>
-                </form>
-            </div>
-        </div>
+    <div class="wallboard-header">
+        <i class="bi bi-camera-video-fill me-2"></i>
+        Live ANPR Detections
     </div>
     
-    <div class="detections-grid">
+    <!-- Car Park Filter -->
+    <div class="car-park-filter">
+        <form action="/realtime" method="GET" class="d-flex">
+            <select name="siteId" class="form-select me-2">
+                <option value="">All Car Parks</option>
+                <% if (typeof carparks !== 'undefined' && carparks) { %>
+                    <% carparks.forEach(function(carpark) { %>
+                        <option value="<%= carpark.siteId %>" <%= selectedCarPark === carpark.siteId ? 'selected' : '' %>>
+                            <%= carpark.name %>
+                        </option>
+                    <% }); %>
+                <% } %>
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+    </div>
+    
+    <div class="detections-grid" id="detectionsGrid">
         <% detections.forEach(function(detection) { %>
             <div class="detection-card">
                 <div class="detection-images">
@@ -181,68 +294,117 @@
                 <div class="detection-info">
                     <div class="vrm"><%= detection.VRM %></div>
                     <div class="meta-row">
-                        <span class="meta-label">Time:</span>
-                        <span class="timestamp"><%= detection.timestamp %></span>
-                    </div>
-                    <div class="meta-row">
                         <span class="direction-badge direction-<%= detection.direction ? detection.direction.toLowerCase() : 'unknown' %>">
-                            <%= detection.direction %>
+                            <i class="bi bi-arrow-<%= detection.direction === 'in' ? 'right' : detection.direction === 'out' ? 'left' : 'dash' %>"></i>
+                            <%= detection.direction || 'Unknown' %>
                         </span>
                         <span class="confidence-badge">
+                            <i class="bi bi-check-circle"></i>
                             <%= detection.confidence %>%
                         </span>
                         <span class="camera-badge">
+                            <i class="bi bi-camera"></i>
                             <%= detection.cameraID %>
+                        </span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="timestamp">
+                            <i class="bi bi-clock"></i>
+                            <%= detection.timestamp %>
                         </span>
                     </div>
                 </div>
             </div>
         <% }); %>
     </div>
-    
-    <!-- Pagination -->
-    <% if (typeof totalPages !== 'undefined' && totalPages > 0) { %>
-    <div class="container mt-4 mb-5">
-        <div class="row">
-            <div class="col-md-6 offset-md-3">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center">
-                        <% if (typeof page !== 'undefined' && page > 1) { %>
-                            <li class="page-item">
-                                <a class="page-link" href="/realtime?page=<%= page-1 %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
-                                    Previous
-                                </a>
-                            </li>
-                        <% } else { %>
-                            <li class="page-item disabled">
-                                <span class="page-link">Previous</span>
-                            </li>
-                        <% } %>
-                        
-                        <% for(let i = 1; i <= totalPages; i++) { %>
-                            <li class="page-item <%= (typeof page !== 'undefined' && page === i) ? 'active' : '' %>">
-                                <a class="page-link" href="/realtime?page=<%= i %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
-                                    <%= i %>
-                                </a>
-                            </li>
-                        <% } %>
-                        
-                        <% if (typeof page !== 'undefined' && typeof totalPages !== 'undefined' && page < totalPages) { %>
-                            <li class="page-item">
-                                <a class="page-link" href="/realtime?page=<%= page+1 %><%= selectedCarPark ? '&siteId=' + selectedCarPark : '' %>">
-                                    Next
-                                </a>
-                            </li>
-                        <% } else { %>
-                            <li class="page-item disabled">
-                                <span class="page-link">Next</span>
-                            </li>
-                        <% } %>
-                    </ul>
-                </nav>
-            </div>
-        </div>
-    </div>
-    <% } %>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let ws;
+        let reconnectInterval = 5000;
+        const grid = document.getElementById('detectionsGrid');
+        const maxCards = 20; // Maximum number of cards to show
+        let loadingDiv = null;
+
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws/detections`);
+
+            ws.onmessage = function(event) {
+                const detection = JSON.parse(event.data);
+                // Create new card
+                const card = document.createElement('div');
+                card.className = 'detection-card new';
+                // Format timestamp
+                const timestamp = new Date(detection.timestamp).toLocaleString();
+                // Create card content
+                card.innerHTML = `
+                    <div class="detection-images">
+                        ${detection.hasImage1 ? 
+                            `<img src="/image/${detection.id}/1" alt="Image 1" onerror="this.src='/images/placeholder.jpg'">` :
+                            `<img src="/images/placeholder.jpg" alt="No Image 1">`
+                        }
+                        ${detection.hasImage2 ? 
+                            `<img src="/image/${detection.id}/2" alt="Image 2" onerror="this.src='/images/placeholder.jpg'">` :
+                            `<img src="/images/placeholder.jpg" alt="No Image 2">`
+                        }
+                    </div>
+                    <div class="detection-info">
+                        <div class="vrm">${detection.VRM}</div>
+                        <div class="meta-row">
+                            <span class="direction-badge direction-${detection.direction ? detection.direction.toLowerCase() : 'unknown'}">
+                                <i class="bi bi-arrow-${detection.direction === 'in' ? 'right' : detection.direction === 'out' ? 'left' : 'dash'}"></i>
+                                ${detection.direction || 'Unknown'}
+                            </span>
+                            <span class="confidence-badge">
+                                <i class="bi bi-check-circle"></i>
+                                ${detection.confidence}%
+                            </span>
+                            <span class="camera-badge">
+                                <i class="bi bi-camera"></i>
+                                ${detection.cameraID}
+                            </span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="timestamp">
+                                <i class="bi bi-clock"></i>
+                                ${timestamp}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                // Add new card at the top
+                grid.insertBefore(card, grid.firstChild);
+                // Remove oldest card if we exceed maxCards
+                if (grid.children.length > maxCards) {
+                    const oldestCard = grid.lastChild;
+                    oldestCard.style.opacity = '0';
+                    oldestCard.style.transform = 'translateY(20px)';
+                    setTimeout(() => oldestCard.remove(), 500);
+                }
+            };
+
+            ws.onopen = function() {
+                if (loadingDiv) {
+                    loadingDiv.remove();
+                    loadingDiv = null;
+                }
+            };
+
+            ws.onclose = function() {
+                if (!loadingDiv) {
+                    loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'loading';
+                    loadingDiv.innerHTML = `
+                        <div class="loading-spinner"></div>
+                        <span>Reconnecting...</span>
+                    `;
+                    document.body.appendChild(loadingDiv);
+                }
+                setTimeout(connectWebSocket, reconnectInterval);
+            };
+        }
+
+        connectWebSocket();
+    </script>
 </body>
 </html>

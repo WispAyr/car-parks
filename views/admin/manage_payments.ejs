@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Payments - ANPR Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container-fluid mt-4" style="max-width: 1400px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-primary mb-0">Manage Payments</h2>
+        <a href="/admin" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Admin Dashboard</a>
+    </div>
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label for="carParkFilter" class="form-label">Car Park</label>
+                    <select id="carParkFilter" class="form-select">
+                        <option value="">All</option>
+                        <% carParks.forEach(function(cp) { %>
+                            <option value="<%= cp.siteId %>"><%= cp.name %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="dateFilter" class="form-label">Payment Start After</label>
+                    <input type="date" id="dateFilter" class="form-control">
+                </div>
+                <div class="col-md-6 d-flex align-items-end justify-content-end">
+                    <button id="bulkDeleteBtn" class="btn btn-danger me-2" disabled><i class="bi bi-trash"></i> Bulk Delete</button>
+                    <button id="bulkReassignBtn" class="btn btn-warning" disabled><i class="bi bi-arrow-left-right"></i> Bulk Reassign</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="paymentsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>Payment ID</th>
+                            <th>Car Park</th>
+                            <th>VRM</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Source</th>
+                            <th>Serial</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% payments.forEach(function(p) { %>
+                            <tr data-id="<%= p.id %>">
+                                <td><input type="checkbox" class="rowCheckbox"></td>
+                                <td><%= p.id %></td>
+                                <td><%= p.siteId %></td>
+                                <td><%= p.vrm %></td>
+                                <td><%= p.paymentStart ? new Date(p.paymentStart).toLocaleString() : '' %></td>
+                                <td><%= p.paymentEnd ? new Date(p.paymentEnd).toLocaleString() : '' %></td>
+                                <td><%= p.source %></td>
+                                <td><%= p.transactionSerial %></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary editBtn"><i class="bi bi-pencil"></i></button>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Edit Payment Modal -->
+    <div class="modal fade" id="editPaymentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editPaymentForm">
+                        <input type="hidden" id="editPaymentId">
+                        <div class="mb-3">
+                            <label for="editSiteId" class="form-label">Car Park</label>
+                            <select id="editSiteId" class="form-select" required>
+                                <% carParks.forEach(function(cp) { %>
+                                    <option value="<%= cp.siteId %>"><%= cp.name %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editVrm" class="form-label">VRM</label>
+                            <input type="text" id="editVrm" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPaymentStart" class="form-label">Payment Start</label>
+                            <input type="datetime-local" id="editPaymentStart" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPaymentEnd" class="form-label">Payment End</label>
+                            <input type="datetime-local" id="editPaymentEnd" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editSource" class="form-label">Source</label>
+                            <input type="text" id="editSource" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editSerial" class="form-label">Transaction Serial</label>
+                            <input type="text" id="editSerial" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bulk Reassign Modal -->
+    <div class="modal fade" id="bulkReassignModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk Reassign Payments</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="bulkReassignForm">
+                        <div class="mb-3">
+                            <label for="bulkReassignSiteId" class="form-label">New Car Park</label>
+                            <select id="bulkReassignSiteId" class="form-select" required>
+                                <% carParks.forEach(function(cp) { %>
+                                    <option value="<%= cp.siteId %>"><%= cp.name %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning">Reassign Selected</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(document).ready(function() {
+    var table = $('#paymentsTable').DataTable({
+        order: [[4, 'desc']],
+        pageLength: 25,
+        dom: 'Bfrtip',
+        language: { search: "Search payments:" }
+    });
+    // Filter by car park
+    $('#carParkFilter').on('change', function() {
+        var val = $(this).val();
+        table.column(2).search(val ? '^' + val + '$' : '', true, false).draw();
+    });
+    // Filter by date
+    $('#dateFilter').on('change', function() {
+        var val = $(this).val();
+        table.column(4).search(val, true, false).draw();
+    });
+    // Select all
+    $('#selectAll').on('change', function() {
+        $('.rowCheckbox').prop('checked', this.checked).trigger('change');
+    });
+    // Enable/disable bulk buttons
+    $('#paymentsTable').on('change', '.rowCheckbox', function() {
+        var anyChecked = $('.rowCheckbox:checked').length > 0;
+        $('#bulkDeleteBtn, #bulkReassignBtn').prop('disabled', !anyChecked);
+    });
+    // Edit button
+    $('#paymentsTable').on('click', '.editBtn', function() {
+        var row = $(this).closest('tr');
+        var data = table.row(row).data();
+        $('#editPaymentId').val(data[1]);
+        $('#editSiteId').val(data[2]);
+        $('#editVrm').val(data[3]);
+        $('#editPaymentStart').val(new Date(data[4]).toISOString().slice(0,16));
+        $('#editPaymentEnd').val(new Date(data[5]).toISOString().slice(0,16));
+        $('#editSource').val(data[6]);
+        $('#editSerial').val(data[7]);
+        var modal = new bootstrap.Modal(document.getElementById('editPaymentModal'));
+        modal.show();
+    });
+    // Handle edit form submission
+    $('#editPaymentForm').on('submit', function(e) {
+        e.preventDefault();
+        var id = $('#editPaymentId').val();
+        var data = {
+            siteId: $('#editSiteId').val(),
+            vrm: $('#editVrm').val(),
+            paymentStart: $('#editPaymentStart').val(),
+            paymentEnd: $('#editPaymentEnd').val(),
+            source: $('#editSource').val(),
+            transactionSerial: $('#editSerial').val()
+        };
+
+        $.ajax({
+            url: '/admin/api/payments/' + id,
+            method: 'PUT',
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    // Reload the table
+                    location.reload();
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating payment: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+    // Bulk delete button
+    $('#bulkDeleteBtn').on('click', function() {
+        if (!confirm('Are you sure you want to delete the selected payments?')) {
+            return;
+        }
+
+        var ids = [];
+        $('.rowCheckbox:checked').each(function() {
+            ids.push($(this).closest('tr').data('id'));
+        });
+
+        $.ajax({
+            url: '/admin/api/payments',
+            method: 'DELETE',
+            data: { ids: ids },
+            success: function(response) {
+                if (response.success) {
+                    // Reload the table
+                    location.reload();
+                }
+            },
+            error: function(xhr) {
+                alert('Error deleting payments: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+    // Bulk reassign button
+    $('#bulkReassignBtn').on('click', function() {
+        var modal = new bootstrap.Modal(document.getElementById('bulkReassignModal'));
+        modal.show();
+    });
+    // Handle bulk reassign form submission
+    $('#bulkReassignForm').on('submit', function(e) {
+        e.preventDefault();
+        var ids = [];
+        $('.rowCheckbox:checked').each(function() {
+            ids.push($(this).closest('tr').data('id'));
+        });
+
+        $.ajax({
+            url: '/admin/api/payments/reassign',
+            method: 'PUT',
+            data: {
+                ids: ids,
+                newSiteId: $('#bulkReassignSiteId').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Reload the table
+                    location.reload();
+                }
+            },
+            error: function(xhr) {
+                alert('Error reassigning payments: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+});
+</script>
+</body>
+</html> 

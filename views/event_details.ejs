@@ -1,405 +1,305 @@
 <div class="container-fluid py-4">
-    <div class="row">
+    <!-- Event Summary Card -->
+    <div class="row mb-4">
         <div class="col-12">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        Event Details - <%= event.carparkName %>
-                        <small class="text-muted">(<%= event.siteId %>)</small>
-                    </h5>
-                    <a href="/events" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-arrow-left"></i> Back to Events
-                    </a>
-                </div>
-                <div class="card-body">
-                    <!-- Split Event Button -->
-                    <div class="mb-3">
-                        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#splitEventModal">
-                            Split Event
-                        </button>
-                    </div>
-                    <!-- Basic Event Information -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="mb-3">Event Information</h6>
-                            <table class="table table-sm">
-                                <tr>
-                                    <th style="width: 150px;">Vehicle Registration</th>
-                                    <td><%= event.VRM %></td>
-                                </tr>
-                                <tr>
-                                    <th>Entry Time</th>
-                                    <td><%= new Date(event.entryTime).toLocaleString() %></td>
-                                </tr>
-                                <tr>
-                                    <th>Exit Time</th>
-                                    <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
-                                </tr>
-                                <tr>
-                                    <th>Duration</th>
-                                    <td><%= event.durationMinutes !== null ? Number(event.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
-                                </tr>
-                                <tr>
-                                    <th>Through Traffic</th>
-                                    <td><%= event.throughTraffic ? 'Yes' : 'No' %></td>
-                                </tr>
-                            </table>
+            <div class="card shadow-sm">
+                <div class="card-body d-flex flex-wrap align-items-center justify-content-between">
+                    <div>
+                        <h4 class="fw-bold mb-1">Event for <span class="text-primary"><%= event.VRM %></span></h4>
+                        <div class="mb-2">
+                            <span class="badge bg-secondary me-2">Car Park: <%= event.carparkName %> (<%= event.siteId %>)</span>
+                            <span class="badge bg-info me-2">Entry: <%= new Date(event.entryTime).toLocaleString() %></span>
+                            <span class="badge bg-info">Exit: <%= (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></span>
                         </div>
-                    </div>
-
-                    <!-- Entry Detection Details -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h6 class="mb-3">Entry Detection</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <table class="table table-sm">
-                                        <tr>
-                                            <th style="width: 150px;">Camera</th>
-                                            <td><%= event.entryCameraName %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Direction</th>
-                                            <td><%= event.entryDirection || '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Confidence</th>
-                                            <td><%= event.entryConfidence %>%</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Tag</th>
-                                            <td><%= event.entryTag || '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Tag Confidence</th>
-                                            <td><%= event.entryTagConfidence ? event.entryTagConfidence + '%' : '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Country</th>
-                                            <td><%= event.entryCountry || '-' %></td>
-                                        </tr>
-                                    </table>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex gap-3">
-                                        <div>
-                                            <h6 class="text-muted mb-2">Image 1</h6>
-                                            <img src="/image/<%= event.entryDetectionId %>/1" 
-                                                 alt="Entry Image 1" 
-                                                 class="img-thumbnail" 
-                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
-                                                 onclick="viewImage('<%= event.entryDetectionId %>', 1)"
-                                                 onerror="this.src='/images/placeholder.jpg'">
-                                        </div>
-                                        <div>
-                                            <h6 class="text-muted mb-2">Image 2</h6>
-                                            <img src="/image/<%= event.entryDetectionId %>/2" 
-                                                 alt="Entry Image 2" 
-                                                 class="img-thumbnail" 
-                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
-                                                 onclick="viewImage('<%= event.entryDetectionId %>', 2)"
-                                                 onerror="this.src='/images/placeholder.jpg'">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Exit Detection Details -->
-                    <% if (event.exitTime) { %>
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h6 class="mb-3">Exit Detection</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <table class="table table-sm">
-                                        <tr>
-                                            <th style="width: 150px;">Camera</th>
-                                            <td><%= event.exitCameraName %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Direction</th>
-                                            <td><%= event.exitDirection || '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Confidence</th>
-                                            <td><%= event.exitConfidence %>%</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Tag</th>
-                                            <td><%= event.exitTag || '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Tag Confidence</th>
-                                            <td><%= event.exitTagConfidence ? event.exitTagConfidence + '%' : '-' %></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Country</th>
-                                            <td><%= event.exitCountry || '-' %></td>
-                                        </tr>
-                                    </table>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex gap-3">
-                                        <div>
-                                            <h6 class="text-muted mb-2">Image 1</h6>
-                                            <img src="/image/<%= event.exitDetectionId %>/1" 
-                                                 alt="Exit Image 1" 
-                                                 class="img-thumbnail" 
-                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
-                                                 onclick="viewImage('<%= event.exitDetectionId %>', 1)"
-                                                 onerror="this.src='/images/placeholder.jpg'">
-                                        </div>
-                                        <div>
-                                            <h6 class="text-muted mb-2">Image 2</h6>
-                                            <img src="/image/<%= event.exitDetectionId %>/2" 
-                                                 alt="Exit Image 2" 
-                                                 class="img-thumbnail" 
-                                                 style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;"
-                                                 onclick="viewImage('<%= event.exitDetectionId %>', 2)"
-                                                 onerror="this.src='/images/placeholder.jpg'">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <% } %>
-
-                    <!-- PCNs -->
-                    <% if (pcns && pcns.length > 0) { %>
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h6 class="mb-3">Parking Charge Notices</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>PCN #</th>
-                                            <th>Issue Date</th>
-                                            <th>Due Date</th>
-                                            <th>Amount</th>
-                                            <th>Status</th>
-                                            <th>Reason</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% pcns.forEach(pcn => { %>
-                                            <tr>
-                                                <td><%= pcn.id %></td>
-                                                <td><%= new Date(pcn.issueDate).toLocaleDateString() %></td>
-                                                <td><%= new Date(pcn.dueDate).toLocaleDateString() %></td>
-                                                <td>£<%= pcn.amount.toFixed(2) %></td>
-                                                <td>
-                                                    <span class="badge bg-<%= 
-                                                        pcn.status === 'paid' ? 'success' :
-                                                        pcn.status === 'cancelled' ? 'danger' :
-                                                        pcn.status === 'appealed' ? 'warning' : 'primary'
-                                                    %>">
-                                                        <%= pcn.status.charAt(0).toUpperCase() + pcn.status.slice(1) %>
-                                                    </span>
-                                                </td>
-                                                <td><%= pcn.reason %></td>
-                                            </tr>
-                                        <% }); %>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <% } %>
-
-                    <!-- Detection Flags -->
-                    <% if ((entryFlags && entryFlags.length > 0) || (exitFlags && exitFlags.length > 0)) { %>
-                    <div class="row">
-                        <div class="col-12">
-                            <h6 class="mb-3">Detection Flags</h6>
-                            <% if (entryFlags && entryFlags.length > 0) { %>
-                                <div class="mb-3">
-                                    <h6 class="text-muted">Entry Detection Flags</h6>
-                                    <div class="d-flex gap-2">
-                                        <% entryFlags.forEach(flag => { %>
-                                            <span class="badge bg-<%= 
-                                                flag.flagType === 'ignore' ? 'secondary' :
-                                                flag.flagType === 'problematic' ? 'danger' :
-                                                flag.flagType === 'test' ? 'info' : 'warning'
-                                            %>">
-                                                <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
-                                                <% if (flag.description) { %>
-                                                    - <%= flag.description %>
-                                                <% } %>
-                                            </span>
-                                        <% }); %>
-                                    </div>
-                                </div>
-                            <% } %>
-                            <% if (exitFlags && exitFlags.length > 0) { %>
-                                <div>
-                                    <h6 class="text-muted">Exit Detection Flags</h6>
-                                    <div class="d-flex gap-2">
-                                        <% exitFlags.forEach(flag => { %>
-                                            <span class="badge bg-<%= 
-                                                flag.flagType === 'ignore' ? 'secondary' :
-                                                flag.flagType === 'problematic' ? 'danger' :
-                                                flag.flagType === 'test' ? 'info' : 'warning'
-                                            %>">
-                                                <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
-                                                <% if (flag.description) { %>
-                                                    - <%= flag.description %>
-                                                <% } %>
-                                            </span>
-                                        <% }); %>
-                                    </div>
-                                </div>
-                            <% } %>
-                        </div>
-                    </div>
-                    <% } %>
-
-                    <!-- Related Events for this VRM at this Car Park -->
-                    <% if (relatedEvents && relatedEvents.length > 0) { %>
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h6 class="mb-3">Other Events for <%= event.VRM %> at <%= event.carparkName %></h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Entry Time</th>
-                                            <th>Exit Time</th>
-                                            <th>Duration</th>
-                                            <th>Through Traffic</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% relatedEvents.forEach(ev => { %>
-                                            <tr>
-                                                <td><%= new Date(ev.entryTime).toLocaleString() %></td>
-                                                <td><%= ev.exitTime ? new Date(ev.exitTime).toLocaleString() : 'Still Parked' %></td>
-                                                <td><%= ev.durationMinutes !== null ? Number(ev.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
-                                                <td><%= ev.throughTraffic ? 'Yes' : 'No' %></td>
-                                                <td><a href="/events/<%= ev.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
-                                            </tr>
-                                        <% }); %>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <% } %>
-
-                    <!-- All Detections for this VRM at this Car Park -->
-                    <% if (relatedDetections && relatedDetections.length > 0) { %>
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h6 class="mb-3">All Detections for <%= event.VRM %> at <%= event.carparkName %></h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Timestamp</th>
-                                            <th>Camera</th>
-                                            <th>Direction</th>
-                                            <th>Confidence</th>
-                                            <th>Tag</th>
-                                            <th>Tag Confidence</th>
-                                            <th>Country</th>
-                                            <th>Images</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% relatedDetections.forEach(det => { %>
-                                            <tr class="detection-row" data-detection-id="<%= det.id %>" style="cursor: pointer;">
-                                                <td><%= new Date(det.timestamp).toLocaleString() %></td>
-                                                <td><%= det.cameraID %></td>
-                                                <td><%= det.direction %></td>
-                                                <td><%= det.confidence %></td>
-                                                <td><%= det.tag || '-' %></td>
-                                                <td><%= det.tagConfidence ? det.tagConfidence + '%' : '-' %></td>
-                                                <td><%= det.country || '-' %></td>
-                                                <td>
-                                                    <div class="d-flex gap-2">
-                                                        <img src="/image/<%= det.id %>/1" 
-                                                             alt="Image 1" 
-                                                             class="img-thumbnail" 
-                                                             style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                             onclick="viewImage('<%= det.id %>', 1); event.stopPropagation();"
-                                                             onerror="this.src='/images/placeholder.jpg'">
-                                                        <img src="/image/<%= det.id %>/2" 
-                                                             alt="Image 2" 
-                                                             class="img-thumbnail" 
-                                                             style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                             onclick="viewImage('<%= det.id %>', 2); event.stopPropagation();"
-                                                             onerror="this.src='/images/placeholder.jpg'">
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <button class="btn btn-sm btn-outline-primary" onclick="viewDetectionDetails('<%= det.id %>'); event.stopPropagation();">
-                                                        Details
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        <% }); %>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <% } %>
-
-                    <!-- Event Status -->
-                    <div class="row mb-3">
-                        <div class="col-md-8">
-                            <h2>Event Details</h2>
-                            <span>
-                                <% if (event.status === 'whitelisted') { %>
-                                    <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
-                                <% } else if (event.status === 'paid') { %>
-                                    <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
-                                <% } else if (event.status === 'unpaid') { %>
-                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
-                                <% } else { %>
-                                    <span class="badge bg-secondary">-</span>
-                                <% } %>
-                            </span>
-                            <div class="mt-2">
-                                <!-- Removed Whitelist Checked and Payment Checked fields -->
-                            </div>
-                            <% if (event.status === 'whitelisted' && event.whitelistMatch) { %>
-                                <div class="alert alert-success mt-2">
-                                    <strong>Whitelist Match:</strong><br>
-                                    VRM: <%= event.whitelistMatch.vrm %><br>
-                                    Car Park: <%= event.whitelistMatch.siteId %><br>
-                                    Start: <%= event.whitelistMatch.startDate ? new Date(event.whitelistMatch.startDate).toLocaleDateString() : 'N/A' %><br>
-                                    End: <%= event.whitelistMatch.endDate ? new Date(event.whitelistMatch.endDate).toLocaleDateString() : 'Indefinite' %>
-                                </div>
-                            <% } else if (event.status === 'paid' && event.payment) { %>
-                                <div class="alert alert-primary mt-2">
-                                    <strong>Payment Details:</strong>
-                                    <table class="table table-sm mt-2">
-                                        <tr><th>Amount</th><td>£<%= event.payment.amount.toFixed(2) %></td></tr>
-                                        <tr><th>Reference</th><td><%= event.payment.reference %></td></tr>
-                                        <tr><th>Paid At</th><td><%= new Date(event.payment.paidAt).toLocaleString() %></td></tr>
-                                    </table>
-                                </div>
+                        <div class="mb-2">
+                            <span class="badge bg-dark me-2">Duration: <%= event.durationMinutes !== null ? Number(event.durationMinutes).toFixed(1) + ' min' : '-' %></span>
+                            <span class="badge bg-warning me-2">Through Traffic: <%= event.throughTraffic ? 'Yes' : 'No' %></span>
+                            <% if (event.status === 'whitelisted') { %>
+                                <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
+                            <% } else if (event.status === 'paid') { %>
+                                <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
+                            <% } else if (event.status === 'overstay') { %>
+                                <span class="badge bg-warning"><i class="bi bi-clock-history"></i> Overstay</span>
                             <% } else if (event.status === 'unpaid') { %>
-                                <div class="alert alert-danger mt-2">No valid payment or whitelist found for this event.</div>
-                                <button class="btn btn-outline-success mt-2" disabled>Record Payment</button>
+                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
+                            <% } else { %>
+                                <span class="badge bg-secondary">-</span>
                             <% } %>
-                            <button class="btn btn-outline-info mt-2" id="recheckStatusBtn">
-                                <span id="recheckSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                                <i class="bi bi-arrow-repeat"></i> Re-check Status
-                            </button>
-                            <div id="recheckError" class="alert alert-danger mt-2 d-none"></div>
                         </div>
+                    </div>
+                    <div>
+                        <a href="/events" class="btn btn-outline-secondary btn-sm mb-2"><i class="fas fa-arrow-left"></i> Back to Events</a>
+                        <button class="btn btn-danger mb-2" onclick="deleteAndReprocessEvent('<%= event.id %>')">Delete & Reprocess Event</button>
+                        <button class="btn btn-outline-info mb-2" id="recheckStatusBtn">
+                            <span id="recheckSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-arrow-repeat"></i> Re-check Status
+                        </button>
+                        <div id="recheckError" class="alert alert-danger mt-2 d-none"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Entry & Exit Detection Details Side by Side -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light"><strong>Entry Detection</strong></div>
+                <div class="card-body">
+                    <table class="table table-sm mb-2">
+                        <tr><th>Camera</th><td><%= event.entryCameraName %></td></tr>
+                        <tr><th>Direction</th><td><%= event.entryDirection || '-' %></td></tr>
+                        <tr><th>Confidence</th><td><%= event.entryConfidence %>%</td></tr>
+                        <tr><th>Tag</th><td><%= event.entryTag || '-' %></td></tr>
+                        <tr><th>Tag Confidence</th><td><%= event.entryTagConfidence ? event.entryTagConfidence + '%' : '-' %></td></tr>
+                        <tr><th>Country</th><td><%= event.entryCountry || '-' %></td></tr>
+                    </table>
+                    <div class="d-flex gap-3 mb-2">
+                        <div>
+                            <h6 class="text-muted mb-2">Image 1</h6>
+                            <img src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image 1" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-2">Image 2</h6>
+                            <img src="/image/<%= event.entryDetectionId %>/2" alt="Entry Image 2" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', true)">Flag as Invalid</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', false)">Unflag</button>
+                    </div>
+                    <% if (entryFlags && entryFlags.length > 0) { %>
+                        <div class="mb-2">
+                            <% entryFlags.forEach(flag => { %>
+                                <span class="badge bg-<%= flag.flagType === 'ignore' ? 'secondary' : flag.flagType === 'problematic' ? 'danger' : flag.flagType === 'test' ? 'info' : 'warning' %> me-1">
+                                    <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
+                                    <% if (flag.description) { %> - <%= flag.description %> <% } %>
+                                </span>
+                            <% }); %>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light"><strong>Exit Detection</strong></div>
+                <div class="card-body">
+                    <% if (event.exitTime) { %>
+                        <table class="table table-sm mb-2">
+                            <tr><th>Camera</th><td><%= event.exitCameraName %></td></tr>
+                            <tr><th>Direction</th><td><%= event.exitDirection || '-' %></td></tr>
+                            <tr><th>Confidence</th><td><%= event.exitConfidence %>%</td></tr>
+                            <tr><th>Tag</th><td><%= event.exitTag || '-' %></td></tr>
+                            <tr><th>Tag Confidence</th><td><%= event.exitTagConfidence ? event.exitTagConfidence + '%' : '-' %></td></tr>
+                            <tr><th>Country</th><td><%= event.exitCountry || '-' %></td></tr>
+                        </table>
+                        <div class="d-flex gap-3 mb-2">
+                            <div>
+                                <h6 class="text-muted mb-2">Image 1</h6>
+                                <img src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image 1" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
+                            </div>
+                            <div>
+                                <h6 class="text-muted mb-2">Image 2</h6>
+                                <img src="/image/<%= event.exitDetectionId %>/2" alt="Exit Image 2" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', true)">Flag as Invalid</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', false)">Unflag</button>
+                        </div>
+                        <% if (exitFlags && exitFlags.length > 0) { %>
+                            <div class="mb-2">
+                                <% exitFlags.forEach(flag => { %>
+                                    <span class="badge bg-<%= flag.flagType === 'ignore' ? 'secondary' : flag.flagType === 'problematic' ? 'danger' : flag.flagType === 'test' ? 'info' : 'warning' %> me-1">
+                                        <%= flag.flagType.charAt(0).toUpperCase() + flag.flagType.slice(1) %>
+                                        <% if (flag.description) { %> - <%= flag.description %> <% } %>
+                                    </span>
+                                <% }); %>
+                            </div>
+                        <% } %>
+                    <% } else { %>
+                        <div class="text-muted">No exit detection for this event.</div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Regenerate Events for this VRM Section -->
+    <div class="card my-4">
+        <div class="card-header bg-info text-white">
+            <h6 class="mb-0">Regenerate Events for this VRM</h6>
+        </div>
+        <div class="card-body">
+            <form id="regenerateVrmForm" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">VRM</label>
+                    <input type="text" class="form-control" id="regenVrm" value="<%= event.VRM %>" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Car Park</label>
+                    <input type="text" class="form-control" id="regenSiteId" value="<%= event.siteId %>" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Start Date/Time</label>
+                    <input type="datetime-local" class="form-control" id="regenStart" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date/Time</label>
+                    <input type="datetime-local" class="form-control" id="regenEnd" required>
+                </div>
+                <div class="col-12 mt-2">
+                    <button type="submit" class="btn btn-info">Regenerate Events for VRM</button>
+                    <span id="regenVrmResult" class="ms-3"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- All Detections for this VRM at this Car Park -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light"><strong>All Detections for <%= event.VRM %> at <%= event.carparkName %></strong></div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Camera</th>
+                                    <th>Direction</th>
+                                    <th>Confidence</th>
+                                    <th>Tag</th>
+                                    <th>Tag Confidence</th>
+                                    <th>Country</th>
+                                    <th>Images</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% relatedDetections.forEach(det => { %>
+                                    <tr class="detection-row" data-detection-id="<%= det.id %>" style="cursor: pointer;">
+                                        <td><%= new Date(det.timestamp).toLocaleString() %></td>
+                                        <td><%= det.cameraID %></td>
+                                        <td><%= det.direction %></td>
+                                        <td><%= det.confidence %></td>
+                                        <td><%= det.tag || '-' %></td>
+                                        <td><%= det.tagConfidence ? det.tagConfidence + '%' : '-' %></td>
+                                        <td><%= det.country || '-' %></td>
+                                        <td>
+                                            <div class="d-flex gap-2">
+                                                <img src="/image/<%= det.id %>/1" 
+                                                     alt="Image 1" 
+                                                     class="img-thumbnail" 
+                                                     style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                                     onclick="viewImage('<%= det.id %>', 1); event.stopPropagation();"
+                                                     onerror="this.src='/images/placeholder.jpg'">
+                                                <img src="/image/<%= det.id %>/2" 
+                                                     alt="Image 2" 
+                                                     class="img-thumbnail" 
+                                                     style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                                     onclick="viewImage('<%= det.id %>', 2); event.stopPropagation();"
+                                                     onerror="this.src='/images/placeholder.jpg'">
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-danger me-1" onclick="flagDetection('<%= det.id %>', 'ignore', true); event.stopPropagation();">Flag as Invalid</button>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="flagDetection('<%= det.id %>', 'ignore', false); event.stopPropagation();">Unflag</button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Other Events for this VRM at this Car Park -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light"><strong>Other Events for <%= event.VRM %> at <%= event.carparkName %></strong></div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Entry Time</th>
+                                    <th>Exit Time</th>
+                                    <th>Duration</th>
+                                    <th>Through Traffic</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% relatedEvents.forEach(ev => { %>
+                                    <tr>
+                                        <td><%= new Date(ev.entryTime).toLocaleString() %></td>
+                                        <td><%= ev.exitTime ? new Date(ev.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                        <td><%= ev.durationMinutes !== null ? Number(ev.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
+                                        <td><%= ev.throughTraffic ? 'Yes' : 'No' %></td>
+                                        <td><a href="/events/<%= ev.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PCNs (if any) -->
+    <% if (pcns && pcns.length > 0) { %>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light"><strong>Parking Charge Notices</strong></div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>PCN #</th>
+                                    <th>Issue Date</th>
+                                    <th>Due Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% pcns.forEach(pcn => { %>
+                                    <tr>
+                                        <td><%= pcn.id %></td>
+                                        <td><%= new Date(pcn.issueDate).toLocaleDateString() %></td>
+                                        <td><%= new Date(pcn.dueDate).toLocaleDateString() %></td>
+                                        <td>£<%= pcn.amount.toFixed(2) %></td>
+                                        <td>
+                                            <span class="badge bg-<%= 
+                                                pcn.status === 'paid' ? 'success' :
+                                                pcn.status === 'cancelled' ? 'danger' :
+                                                pcn.status === 'appealed' ? 'warning' : 'primary'
+                                            %>">
+                                                <%= pcn.status.charAt(0).toUpperCase() + pcn.status.slice(1) %>
+                                            </span>
+                                        </td>
+                                        <td><%= pcn.reason %></td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <% } %>
 </div>
 
 <!-- Image Preview Modal -->
@@ -497,6 +397,7 @@
     </div>
 </div>
 
+<% let minDateStr = '', maxDateStr = ''; if (relatedDetections && relatedDetections.length > 0) { minDateStr = relatedDetections[0].timestamp.toISOString ? relatedDetections[0].timestamp.toISOString() : relatedDetections[0].timestamp; maxDateStr = relatedDetections[relatedDetections.length-1].timestamp.toISOString ? relatedDetections[relatedDetections.length-1].timestamp.toISOString() : relatedDetections[relatedDetections.length-1].timestamp; } %>
 <script>
 let currentDetectionId = null;
 
@@ -601,5 +502,82 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+});
+
+function flagDetection(detectionId, flagType, isActive) {
+    fetch(`/api/detections/${detectionId}/flag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flagType, isActive })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error flagging detection: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        alert('Error flagging detection: ' + err);
+    });
+}
+
+function deleteAndReprocessEvent(eventId) {
+    if (!confirm('Are you sure you want to delete and reprocess this event?')) return;
+    fetch(`/events/${eventId}/delete-reprocess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Event deleted. You may now re-run event generation for this VRM/time window.');
+            window.location.href = '/events';
+        } else {
+            alert('Error deleting event: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        alert('Error deleting event: ' + err);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-fill date/time range for regenerate VRM section
+    var minDateStr = '<%= minDateStr %>';
+    var maxDateStr = '<%= maxDateStr %>';
+    if (minDateStr && maxDateStr) {
+        var minDate = new Date(minDateStr);
+        var maxDate = new Date(maxDateStr);
+        document.getElementById('regenStart').value = minDate.toISOString().slice(0,16);
+        document.getElementById('regenEnd').value = maxDate.toISOString().slice(0,16);
+    }
+    // Handle form submit
+    document.getElementById('regenerateVrmForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var siteId = document.getElementById('regenSiteId').value;
+        var vrm = document.getElementById('regenVrm').value;
+        var startDate = document.getElementById('regenStart').value;
+        var endDate = document.getElementById('regenEnd').value;
+        var resultSpan = document.getElementById('regenVrmResult');
+        resultSpan.textContent = 'Regenerating...';
+        fetch('/admin/regenerate-events-for-vrm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId, vrm, startDate, endDate })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                resultSpan.textContent = `Regenerated ${data.regenerated} events for VRM.`;
+            } else {
+                resultSpan.textContent = 'Error: ' + (data.error || 'Unknown error');
+            }
+        })
+        .catch(err => {
+            resultSpan.textContent = 'Error: ' + err;
+        });
+    });
 });
 </script> 

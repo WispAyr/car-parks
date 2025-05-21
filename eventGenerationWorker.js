@@ -1,5 +1,6 @@
 const { Worker, redis } = require('./eventGenerationQueue');
 const { generateParkingEvents } = require('./eventGeneration');
+const logger = require('./utils/logger');
 
 // Worker for event generation jobs
 const worker = new Worker('event-generation', async job => {
@@ -16,5 +17,5 @@ worker.on('completed', job => {
     console.log(`Job ${job.id} completed`);
 });
 worker.on('failed', (job, err) => {
-    console.error(`Job ${job.id} failed:`, err);
+    logger.error(`Job ${job.id} failed:`, err);
 }); 

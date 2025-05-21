@@ -11,14 +11,56 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/admin">Dashboard</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/admin/events">Events</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-list-ul"></i> Events
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/events">View Events</a></li>
+                        <li><a class="dropdown-item" href="/admin/flagged-events">Flagged Events</a></li>
+                        <li><a class="dropdown-item" href="/admin/events">Events Management</a></li>
+                        <li><a class="dropdown-item" href="/admin/event-generation">Generate Events</a></li>
+                    </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/admin/cameras">Cameras</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-ticket-detailed"></i> PCNs
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/admin/pcns">Manage PCNs</a></li>
+                        <li><a class="dropdown-item" href="/admin/pcns?status=possible">Possible PCNs</a></li>
+                        <li><a class="dropdown-item" href="/admin/pcns?status=active">Active PCNs</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin/pcn-automation">PCN Automation</a></li>
+                    </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/admin/carparks">Car Parks</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-camera"></i> Cameras
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/admin/cameras">Manage Cameras</a></li>
+                        <li><a class="dropdown-item" href="/admin/unknown-events">Unknown Events</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-building"></i> Car Parks
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/admin/carparks">Manage Car Parks</a></li>
+                        <li><a class="dropdown-item" href="/admin/whitelists">Whitelists</a></li>
+                        <li><a class="dropdown-item" href="/admin/pcn-automation">PCN Automation</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-credit-card"></i> Payments
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/admin/manage-payments">Manage Payments</a></li>
+                        <li><a class="dropdown-item" href="/admin/import-payments">Import Payments</a></li>
+                    </ul>
                 </li>
             </ul>
             <ul class="navbar-nav">
@@ -29,18 +71,3 @@
         </div>
     </div>
 </nav>
-
-<ul class="nav nav-pills mb-3">
-  <li class="nav-item">
-    <a class="nav-link" href="/events"><i class="bi bi-list-ul"></i> Events</a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link" href="/admin/flagged-events"><i class="bi bi-flag"></i> Flagged Events</a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link" href="/admin/events"><i class="bi bi-gear"></i> Events Management</a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link" href="/admin/event-generation"><i class="bi bi-play-circle"></i> Generate Events</a>
-  </li>
-</ul>

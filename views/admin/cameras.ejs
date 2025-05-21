@@ -30,9 +30,8 @@
                     <tr>
                         <th>Name</th>
                         <th>Car Park</th>
-                        <th>Entry Trigger</th>
-                        <th>Exit Trigger</th>
-                        <th>Direction</th>
+                        <th>Entry Direction</th>
+                        <th>Exit Direction</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -41,17 +40,17 @@
                         <tr>
                             <td><%= camera.name %></td>
                             <td><%= camera.carParkName || 'Unassigned' %></td>
-                            <td><%= camera.isEntryTrigger ? 'Yes' : 'No' %></td>
-                            <td><%= camera.isExitTrigger ? 'Yes' : 'No' %></td>
-                            <td><%= camera.direction %></td>
+                            <td><%= camera.entryDirection || '-' %></td>
+                            <td><%= camera.exitDirection || '-' %></td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary edit-camera" 
                                         data-camera='<%= JSON.stringify({
                                             name: camera.name,
                                             carParkId: camera.carParkId,
+                                            entryDirection: camera.entryDirection,
+                                            exitDirection: camera.exitDirection,
                                             isEntryTrigger: camera.isEntryTrigger,
-                                            isExitTrigger: camera.isExitTrigger,
-                                            direction: camera.direction
+                                            isExitTrigger: camera.isExitTrigger
                                         }) %>'>
                                     <i class="bi bi-pencil"></i>
                                 </button>
@@ -65,6 +64,13 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Camera Direction Mapping Help -->
+    <div class="alert alert-info mb-3">
+        <strong>Direction Mapping:</strong> Specify which detection direction (from the ANPR system) means <b>ENTRY</b> or <b>EXIT</b> for this camera.<br>
+        For example, if "towards" means a vehicle is entering, set Entry Direction to "towards". If "away" means a vehicle is exiting, set Exit Direction to "away".<br>
+        <b>Common values:</b> in, out, towards, away, left, right. You can also type a custom value.
     </div>
 
     <!-- Add Camera Modal -->
@@ -91,22 +97,20 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Camera Configuration</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isEntryTrigger" id="isEntryTrigger">
-                                <label class="form-check-label" for="isEntryTrigger">Entry Trigger</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isExitTrigger" id="isExitTrigger">
-                                <label class="form-check-label" for="isExitTrigger">Exit Trigger</label>
-                            </div>
+                            <label class="form-label">Entry Direction</label>
+                            <input list="directionOptions" class="form-control" name="entryDirection" placeholder="e.g. towards" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Direction</label>
-                            <select class="form-select" name="direction" required>
-                                <option value="in">In</option>
-                                <option value="out">Out</option>
-                            </select>
+                            <label class="form-label">Exit Direction</label>
+                            <input list="directionOptions" class="form-control" name="exitDirection" placeholder="e.g. away">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Entry Trigger</label>
+                            <input type="checkbox" class="form-check-input ms-2" name="isEntryTrigger">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Exit Trigger</label>
+                            <input type="checkbox" class="form-check-input ms-2" name="isExitTrigger">
                         </div>
                     </form>
                 </div>
@@ -143,22 +147,20 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Camera Configuration</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isEntryTrigger" id="editIsEntryTrigger">
-                                <label class="form-check-label" for="editIsEntryTrigger">Entry Trigger</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="isExitTrigger" id="editIsExitTrigger">
-                                <label class="form-check-label" for="editIsExitTrigger">Exit Trigger</label>
-                            </div>
+                            <label class="form-label">Entry Direction</label>
+                            <input list="directionOptions" class="form-control" name="entryDirection" placeholder="e.g. towards" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Direction</label>
-                            <select class="form-select" name="direction" required>
-                                <option value="in">In</option>
-                                <option value="out">Out</option>
-                            </select>
+                            <label class="form-label">Exit Direction</label>
+                            <input list="directionOptions" class="form-control" name="exitDirection" placeholder="e.g. away">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Entry Trigger</label>
+                            <input type="checkbox" class="form-check-input ms-2" name="isEntryTrigger">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Exit Trigger</label>
+                            <input type="checkbox" class="form-check-input ms-2" name="isExitTrigger">
                         </div>
                     </form>
                 </div>
@@ -185,7 +187,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: document.getElementById('cameraName')?.value,
-                        location: document.getElementById('cameraLocation')?.value
+                        carParkId: document.getElementById('carParkId')?.value,
+                        entryDirection: document.getElementById('entryDirection')?.value,
+                        exitDirection: document.getElementById('exitDirection')?.value,
+                        isEntryTrigger: document.getElementById('addCameraForm').querySelector('[name="isEntryTrigger"]').checked,
+                        isExitTrigger: document.getElementById('addCameraForm').querySelector('[name="isExitTrigger"]').checked
                     })
                 },
                 confirmMsg: 'Add this camera?',
@@ -202,9 +208,10 @@
                     form.querySelector('[name="id"]').value = camera.id;
                     form.querySelector('[name="name"]').value = camera.name;
                     form.querySelector('[name="carParkId"]').value = camera.carParkId || '';
-                    form.querySelector('[name="isEntryTrigger"]').checked = camera.isEntryTrigger;
-                    form.querySelector('[name="isExitTrigger"]').checked = camera.isExitTrigger;
-                    form.querySelector('[name="direction"]').value = camera.direction;
+                    form.querySelector('[name="entryDirection"]').value = camera.entryDirection || '';
+                    form.querySelector('[name="exitDirection"]').value = camera.exitDirection || '';
+                    form.querySelector('[name="isEntryTrigger"]').checked = !!camera.isEntryTrigger;
+                    form.querySelector('[name="isExitTrigger"]').checked = !!camera.isExitTrigger;
                     
                     // Store the original name in a data attribute
                     form.dataset.originalName = camera.name;
@@ -217,16 +224,10 @@
             document.getElementById('updateCamera').addEventListener('click', async function() {
                 const form = document.getElementById('editCameraForm');
                 const formData = new FormData(form);
-                
-                const data = {
-                    originalName: form.dataset.originalName,
-                    name: formData.get('name'),
-                    carParkId: formData.get('carParkId') || null,
-                    isEntryTrigger: formData.get('isEntryTrigger') === 'on',
-                    isExitTrigger: formData.get('isExitTrigger') === 'on',
-                    direction: formData.get('direction')
-                };
-
+                const data = Object.fromEntries(formData.entries());
+                data.originalName = form.dataset.originalName;
+                data.isEntryTrigger = form.querySelector('[name="isEntryTrigger"]').checked;
+                data.isExitTrigger = form.querySelector('[name="isExitTrigger"]').checked;
                 try {
                     const response = await fetch('/admin/cameras/edit', {
                         method: 'POST',
@@ -237,8 +238,7 @@
                     if (response.ok) {
                         window.location.reload();
                     } else {
-                        const errorData = await response.json();
-                        alert(errorData.error || 'Error updating camera');
+                        alert('Error updating camera');
                     }
                 } catch (error) {
                     console.error('Error:', error);

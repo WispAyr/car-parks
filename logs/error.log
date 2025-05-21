@@ -1,0 +1,75 @@
+2025-05-20 11:42:19:4219 [31merror[39m: [31mError loading car park dashboard: (conn:19343, no: 1146, SQLState: 42S02) Table 'nocobase.whitelist' doesn't exist[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                COUNT(*) as total,[39m
+[31m                SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) as active[39m
+[31m            FROM whitelist[39m
+[31m            WHERE carParkId = ?[39m
+[31m         - parameters:['CP7'][39m
+2025-05-20 22:33:02:332 [31merror[39m: [31mError importing payments: The "path" argument must be of type string. Received undefined[39m
+2025-05-21 00:15:31:1531 [31merror[39m: [31mError loading unknown events breakdown: (conn:23065, no: 1054, SQLState: 42S22) Unknown column 'id' in 'field list'[39m
+[31msql: SELECT id, name, carParkId FROM cameras ORDER BY carParkId, name - parameters:[][39m
+2025-05-21 00:16:56:1656 [31merror[39m: [31mError loading unknown events breakdown: (conn:23066, no: 1054, SQLState: 42S22) Unknown column 'id' in 'field list'[39m
+[31msql: SELECT id, name, carParkId FROM cameras ORDER BY carParkId, name - parameters:[][39m
+2025-05-21 00:17:18:1718 [31merror[39m: [31mError loading unknown events breakdown: (conn:23068, no: 1054, SQLState: 42S22) Unknown column 'id' in 'field list'[39m
+[31msql: SELECT id, name, carParkId FROM cameras ORDER BY carParkId, name - parameters:[][39m
+2025-05-21 00:21:40:2140 [31merror[39m: [31mError loading unknown events breakdown: (conn:23127, no: 1054, SQLState: 42S22) Unknown column 'd.siteId' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                d.siteId,[39m
+[31m                c.name as cameraName,[39m
+[31m                d.cameraId,[39m
+[31m                DATE(d.detectionTime) as day,[39m
+[31m                COUNT(*) as count[39m
+[31m            FROM anpr_detections d[39m
+[31m            LEFT JOIN camera... - parameters:[][39m
+2025-05-21 00:23:27:2327 [31merror[39m: [31mError loading unknown events breakdown: (conn:23147, no: 1054, SQLState: 42S22) Unknown column 'd.detectionTime' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                c.carParkId as siteId,[39m
+[31m                c.name as cameraName,[39m
+[31m                d.cameraId,[39m
+[31m                DATE(d.detectionTime) as day,[39m
+[31m                COUNT(*) as count[39m
+[31m            FROM anpr_detections d[39m
+[31m            LEF... - parameters:[][39m
+2025-05-21 09:56:10:5610 [31merror[39m: [31mError loading car park dashboard: (conn:23443, no: 1054, SQLState: 42S22) Unknown column 'whitelistMatch' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                id,[39m
+[31m                VRM,[39m
+[31m                entryTime,[39m
+[31m                exitTime,[39m
+[31m                durationMinutes,[39m
+[31m                throughTraffic,[39m
+[31m                status,[39m
+[31m                whitelistMatch,[39m
+[31m                paym...[39m
+2025-05-21 11:07:21:721 [31merror[39m: [31mError loading PCN management page: (conn:23552, no: 1054, SQLState: 42S22) Unknown column 'p.issueTime' in 'order clause'[39m
+[31msql: [39m
+[31m            SELECT p.*, cp.name as carparkName, e.entryTime, e.exitTime[39m
+[31m            FROM pcns p[39m
+[31m            LEFT JOIN carparks cp ON p.siteId = cp.siteId[39m
+[31m            LEFT JOIN parking_events e ON p.eventId = e.id[39m
+[31m            ORDER BY p.issueTime DESC[39m
+[31m    ... - parameters:[][39m
+2025-05-21 11:15:03:153 [31merror[39m: [31mError loading PCN management page: (conn:23558, no: 1054, SQLState: 42S22) Unknown column 'p.issueTime' in 'order clause'[39m
+[31msql: [39m
+[31m            SELECT p.*, cp.name as carparkName, e.entryTime, e.exitTime[39m
+[31m            FROM pcns p[39m
+[31m            LEFT JOIN carparks cp ON p.siteId = cp.siteId[39m
+[31m            LEFT JOIN parking_events e ON p.eventId = e.id[39m
+[31m            ORDER BY p.issueTime DESC[39m
+[31m    ... - parameters:[][39m
+2025-05-21 11:21:50:2150 [31merror[39m: [31mError loading car park dashboard: (conn:23543, no: 1054, SQLState: 42S22) Unknown column 'whitelistMatch' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                id,[39m
+[31m                VRM,[39m
+[31m                entryTime,[39m
+[31m                exitTime,[39m
+[31m                durationMinutes,[39m
+[31m                throughTraffic,[39m
+[31m                status,[39m
+[31m                whitelistMatch,[39m
+[31m                paym...[39m

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= carpark.name %> Dashboard - ANPR Admin</title>
+    <title><%= carPark.name %> Dashboard - ANPR Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
@@ -51,76 +51,93 @@
             margin-right: 5px;
             margin-bottom: 5px;
         }
+        .progress-bar.bg-white {
+            background-color: #fff;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><%= carpark.name %> Dashboard</h1>
-            <a href="/admin/carparks" class="btn btn-secondary">Back to Car Parks</a>
-        </div>
-
-        <!-- Add this legend and tooltips above the stats cards -->
-        <div class="row mb-3">
-            <div class="col-12 d-flex align-items-center gap-3">
-                <span><i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip" title="Current number of vehicles parked (no exit detected)"></i> <strong>Current Occupancy</strong></span>
-                <span><i class="bi bi-info-circle text-success" data-bs-toggle="tooltip" title="Completed events today (vehicles that entered and exited)"></i> <strong>Today's Stats</strong></span>
-                <span><i class="bi bi-info-circle text-info" data-bs-toggle="tooltip" title="Quick monthly stats summary"></i> <strong>Quick Stats</strong></span>
-                <span><i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" title="'Through Traffic' means vehicles that stayed less than the 'Through Traffic Minutes' threshold and did not park."></i> <strong>Through Traffic</strong></span>
+            <h2><%= carPark.name %> Dashboard</h2>
+            <div class="btn-group">
+                <a href="/admin/carparks?edit=<%= carPark.siteId %>" class="btn btn-outline-primary" data-siteid="<%= carPark.siteId %>">
+                    <i class="fas fa-edit"></i> Edit Car Park
+                </a>
+                <a href="/admin/carparks/<%= carPark.siteId %>/cameras" class="btn btn-outline-primary">
+                    <i class="fas fa-video"></i> Manage Cameras
+                </a>
             </div>
         </div>
 
-        <!-- Stats Cards Row -->
+        <!-- Key Metrics Cards -->
         <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">Current Occupancy</h5>
-                    </div>
-                    <div class="card-body text-center">
-                        <h2 class="display-4"><%= currentOccupancy %></h2>
-                        <p class="text-muted">Vehicles Currently Parked</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="card-title mb-0">Today's Stats</h5>
-                    </div>
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Total Vehicles:</span>
-                            <span class="fw-bold"><%= todayStats.totalVehicles %></span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Through Traffic:</span>
-                            <span class="fw-bold"><%= todayStats.throughTraffic %></span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Avg Duration:</span>
-                            <span class="fw-bold"><%= Number(todayStats.avgDuration || 0).toFixed(2) %> minutes</span>
+                        <h6 class="card-title">Total Events Today</h6>
+                        <h2 class="mb-0"><%= typeof todayStats.totalEvents === 'number' ? todayStats.totalEvents : 0 %></h2>
+                        <small>+<%= typeof todayStats.newEvents === 'number' ? todayStats.newEvents : 0 %> new</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-white" role="progressbar" style="width: <%= (todayStats.totalEvents && todayStats.newEvents) ? ((Number(todayStats.newEvents)/Number(todayStats.totalEvents))*100).toFixed(1) : 0 %>%;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="card-title mb-0">Quick Stats</h5>
-                    </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Monthly Total:</span>
-                            <span class="fw-bold"><%= monthlyStats.reduce((sum, stat) => sum + Number(stat.totalVehicles || 0), 0) %></span>
+                        <h6 class="card-title">Currently Parked</h6>
+                        <h2 class="mb-0"><%= typeof todayStats.currentlyParked === 'number' ? todayStats.currentlyParked : 0 %></h2>
+                        <small><%= typeof todayStats.occupancyRate === 'number' ? todayStats.occupancyRate : 0 %>% occupancy</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-white" role="progressbar" style="width: <%= typeof todayStats.occupancyRate === 'number' ? todayStats.occupancyRate : 0 %>%;"></div>
+                            </div>
                         </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Monthly Through:</span>
-                            <span class="fw-bold"><%= monthlyStats.reduce((sum, stat) => sum + Number(stat.throughTraffic || 0), 0) %></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Whitelisted Vehicles</h6>
+                        <h2 class="mb-0"><%= typeof whitelistStats.total === 'number' ? whitelistStats.total : 0 %></h2>
+                        <small><%= typeof whitelistStats.active === 'number' ? whitelistStats.active : 0 %> active</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-white" role="progressbar" style="width: <%= (whitelistStats.total && whitelistStats.active) ? ((Number(whitelistStats.active)/Number(whitelistStats.total))*100).toFixed(1) : 0 %>%;"></div>
+                            </div>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Avg Stay:</span>
-                            <span class="fw-bold"><%= (monthlyStats.reduce((sum, stat) => sum + Number(stat.avgDuration || 0), 0) / (monthlyStats.length || 1)).toFixed(2) %> min</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Through Traffic</h6>
+                        <h2 class="mb-0"><%= typeof todayStats.throughTraffic === 'number' ? todayStats.throughTraffic : 0 %></h2>
+                        <small><%= typeof todayStats.throughTrafficRate === 'number' ? todayStats.throughTrafficRate : 0 %>% of total</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-white" role="progressbar" style="width: <%= typeof todayStats.throughTrafficRate === 'number' ? todayStats.throughTrafficRate : 0 %>%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Overstays</h6>
+                        <h2 class="mb-0"><%= typeof todayStats.overstay === 'number' ? todayStats.overstay : 0 %></h2>
+                        <small><%= typeof todayStats.overstayRate === 'number' ? todayStats.overstayRate : 0 %>% of total</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar bg-white" role="progressbar" style="width: <%= typeof todayStats.overstayRate === 'number' ? todayStats.overstayRate : 0 %>%;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -131,243 +148,127 @@
         <div class="row mb-4">
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">Today's Hourly Distribution</h5>
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Event Type Distribution</h5>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="hourlyChart"></canvas>
-                        </div>
+                        <canvas id="eventTypeChart" height="200"></canvas>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="card-title mb-0">Average Stay by Day of Week</h5>
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Status Breakdown</h5>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="dailyChart"></canvas>
-                        </div>
+                        <canvas id="statusChart" height="200"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Monthly Trends Chart -->
+        <!-- Hourly Activity and Duration Distribution -->
         <div class="row mb-4">
-            <div class="col-md-12">
+            <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="card-title mb-0">Monthly Trends</h5>
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Hourly Activity</h5>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="monthlyChart"></canvas>
-                        </div>
+                        <% if (hourlyData && hourlyData.some(v => v > 0)) { %>
+                            <canvas id="hourlyChart" height="200"></canvas>
+                        <% } else { %>
+                            <div class="text-muted">No data available</div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Duration Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <% if (durationData && durationData.some(v => v > 0)) { %>
+                            <canvas id="durationChart" height="200"></canvas>
+                        <% } else { %>
+                            <div class="text-muted">No data available</div>
+                        <% } %>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Add a legend for chart colors below the charts -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex gap-4 align-items-center justify-content-center">
-                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(54,162,235,0.5);margin-right:6px;border-radius:3px;"></span> Vehicles</span>
-                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(255,99,132,0.5);margin-right:6px;border-radius:3px;"></span> Through Traffic</span>
-                    <span class="d-flex align-items-center"><span style="display:inline-block;width:16px;height:16px;background:rgba(75,192,192,0.5);margin-right:6px;border-radius:3px;"></span> Avg Duration</span>
-                </div>
+        <!-- Recent Events Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Events</h5>
+                <a href="/all-events?siteId=<%= carPark.siteId %>" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
-        </div>
-
-        <!-- Current Vehicles and Recent Events -->
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="card-title mb-0">Currently Parked Vehicles</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="eventsTable">
+                        <thead>
+                            <tr>
+                                <th>VRM</th>
+                                <th>Entry Time</th>
+                                <th>Exit Time</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Type</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (recentEvents && recentEvents.length > 0) { %>
+                                <% recentEvents.forEach(event => { %>
                                     <tr>
-                                        <th>VRM</th>
-                                        <th>Entry Time</th>
-                                        <th>Duration</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% currentVehicles.forEach(vehicle => { %>
-                                        <tr>
-                                            <td><%= vehicle.VRM %></td>
-                                            <td><%= new Date(vehicle.entryTime).toLocaleString() %></td>
-                                            <td><%= Math.round((new Date() - new Date(vehicle.entryTime)) / 60000) %> min</td>
-                                        </tr>
-                                    <% }); %>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="card-title mb-0">Recent Events</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>VRM</th>
-                                        <th>Entry</th>
-                                        <th>Exit</th>
-                                        <th>Duration</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% recentEvents.forEach(event => { %>
-                                        <tr>
-                                            <td><%= event.VRM %></td>
-                                            <td><%= new Date(event.entryTime).toLocaleString() %></td>
-                                            <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
-                                            <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
-                                        </tr>
-                                    <% }); %>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Detailed Events Analysis -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Detailed Events Analysis</h5>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-light btn-sm" onclick="exportEvents()">
-                                <i class="bi bi-download"></i> Export
-                            </button>
-                            <button type="button" class="btn btn-light btn-sm" onclick="refreshEvents()">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <!-- Filters -->
-                        <div class="row mb-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Date Range</label>
-                                <select class="form-select" id="dateRange">
-                                    <option value="today">Today</option>
-                                    <option value="yesterday">Yesterday</option>
-                                    <option value="week">Last 7 Days</option>
-                                    <option value="month">Last 30 Days</option>
-                                    <option value="custom">Custom Range</option>
-                                </select>
-                                <div id="customDateRange" class="custom-date-range">
-                                    <div class="row mt-2">
-                                        <div class="col-6">
-                                            <input type="text" class="form-control" id="startDate" placeholder="Start Date">
-                                        </div>
-                                        <div class="col-6">
-                                            <input type="text" class="form-control" id="endDate" placeholder="End Date">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Duration Filter</label>
-                                <select class="form-select" id="durationFilter">
-                                    <option value="all">All Durations</option>
-                                    <option value="short">Short (< 30 min)</option>
-                                    <option value="medium">Medium (30 min - 2 hours)</option>
-                                    <option value="long">Long (> 2 hours)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Event Type</label>
-                                <select class="form-select" id="eventType">
-                                    <option value="all">All Events</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="ongoing">Ongoing</option>
-                                    <option value="through">Through Traffic</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Search VRM</label>
-                                <input type="text" class="form-control" id="vrmSearch" placeholder="Enter VRM...">
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <div id="activeFilters"></div>
-                            </div>
-                        </div>
-
-                        <!-- Events Table -->
-                        <div class="table-responsive">
-                            <table class="table table-hover" id="eventsTable">
-                                <thead>
-                                    <tr>
-                                        <th>VRM</th>
-                                        <th>Entry Time</th>
-                                        <th>Exit Time</th>
-                                        <th>Duration</th>
-                                        <th>Type</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% recentEvents.forEach(event => { %>
-                                        <tr>
-                                            <td><%= event.VRM %></td>
-                                            <td><%= new Date(event.entryTime).toLocaleString() %></td>
-                                            <td><%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
-                                            <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
-                                            <td>
+                                        <td><%= event.VRM %></td>
+                                        <td><%= event.entryTime ? new Date(event.entryTime).toLocaleString() : '-' %></td>
+                                        <td><%= (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                        <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
+                                        <td>
+                                            <% if (event.status === 'whitelisted') { %>
+                                                <span class="badge bg-success" title="Whitelisted: <%= event.whitelistMatch ? event.whitelistMatch : '' %>"><i class="bi bi-shield-check"></i> Whitelisted</span>
+                                            <% } else if (event.status === 'paid') { %>
+                                                <span class="badge bg-primary" title="Payment: <%= event.paymentMatch ? event.paymentMatch : '' %>"><i class="bi bi-currency-pound"></i> Paid</span>
+                                            <% } else if (event.status === 'overstay') { %>
+                                                <span class="badge bg-warning text-dark" title="Overstay Payment: <%= event.paymentMatch ? event.paymentMatch : '' %>"><i class="bi bi-clock-history"></i> Overstay</span>
+                                            <% } else if (event.status === 'unpaid') { %>
+                                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
+                                            <% } else { %>
+                                                <span class="badge bg-secondary">Pending</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (!event.exitTime) { %>
+                                                <span class="badge bg-warning">Currently Parked</span>
+                                            <% } else if (event.throughTraffic) { %>
+                                                <span class="badge bg-info">Through Traffic</span>
+                                            <% } else { %>
+                                                <span class="badge bg-success">Completed</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/events/<%= event.id %>" class="btn btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
                                                 <% if (!event.exitTime) { %>
-                                                    <span class="badge bg-warning">Ongoing</span>
-                                                <% } else if (event.durationMinutes < 30) { %>
-                                                    <span class="badge bg-info">Through Traffic</span>
-                                                <% } else { %>
-                                                    <span class="badge bg-success">Completed</span>
+                                                    <button class="btn btn-outline-warning" onclick="markAsExited('<%= event.id %>')">
+                                                        <i class="fas fa-sign-out-alt"></i>
+                                                    </button>
                                                 <% } %>
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary" onclick="viewEventDetails('<%= event.id %>')">
-                                                    <i class="bi bi-eye"></i> View
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <% }); %>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        <nav aria-label="Events pagination">
-                            <ul class="pagination justify-content-center">
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#" tabindex="-1">Previous</a>
-                                </li>
-                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                <li class="page-item"><a class="page-link" href="#">2</a></li>
-                                <li class="page-item"><a class="page-link" href="#">3</a></li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#">Next</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            <% } else { %>
+                                <tr><td colspan="7" class="text-center text-muted">No recent events</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -449,103 +350,100 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
-            // Prepare chart data
-            const hourlyData = <%- JSON.stringify(hourlyDistribution.map(h => ({ hour: h.hour + ':00', count: Number(h.count) }))) %>;
-            const dailyData = <%- JSON.stringify(dailyStats.map(d => ({ day: d.day, avgDuration: Number(d.avgDuration || 0) }))) %>;
-            const monthlyData = <%- JSON.stringify(monthlyStats.map(m => ({ 
-                month: m.month, 
-                totalVehicles: Number(m.totalVehicles),
-                throughTraffic: Number(m.throughTraffic)
-            }))) %>;
-
-            // Hourly Distribution Chart
-            new Chart(document.getElementById('hourlyChart'), {
-                type: 'bar',
-                data: {
-                    labels: hourlyData.map(h => h.hour),
-                    datasets: [{
-                        label: 'Vehicles',
-                        data: hourlyData.map(h => h.count),
-                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
+            // Debug: Log the number of columns in each row
+            $('#eventsTable tbody tr').each(function() {
+                console.log('Row columns:', $(this).find('td').length, this);
+            });
+            const eventTypeChartEl = document.getElementById('eventTypeChart');
+            if (eventTypeChartEl) {
+                new Chart(eventTypeChartEl, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completed', 'Currently Parked', 'Through Traffic'],
+                        datasets: [{
+                            data: [
+                                <%= todayStats.completedEvents %>,
+                                <%= todayStats.currentlyParked %>,
+                                <%= todayStats.throughTraffic %>
+                            ],
+                            backgroundColor: [
+                                'rgba(40, 167, 69, 0.8)',
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(23, 162, 184, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
                             }
                         }
                     }
-                }
-            });
-
-            // Daily Stats Chart
-            new Chart(document.getElementById('dailyChart'), {
-                type: 'bar',
-                data: {
-                    labels: dailyData.map(d => d.day),
-                    datasets: [{
-                        label: 'Average Duration (minutes)',
-                        data: dailyData.map(d => d.avgDuration),
-                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
+                });
+            }
+            const statusChartEl = document.getElementById('statusChart');
+            if (statusChartEl) {
+                new Chart(statusChartEl, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Whitelisted', 'Paid', 'Overstay', 'Unpaid', 'Pending'],
+                        datasets: [{
+                            data: [
+                                <%= todayStats.whitelisted %>,
+                                <%= todayStats.paid %>,
+                                <%= todayStats.overstay %>,
+                                <%= todayStats.unpaid %>,
+                                <%= todayStats.pending %>
+                            ],
+                            backgroundColor: [
+                                'rgba(40, 167, 69, 0.8)',
+                                'rgba(0, 123, 255, 0.8)',
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(220, 53, 69, 0.8)',
+                                'rgba(108, 117, 125, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
                         }
                     }
-                }
-            });
-
-            // Monthly Trends Chart
-            new Chart(document.getElementById('monthlyChart'), {
-                type: 'line',
-                data: {
-                    labels: monthlyData.map(m => m.month),
-                    datasets: [{
-                        label: 'Total Vehicles',
-                        data: monthlyData.map(m => m.totalVehicles),
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                        fill: true
-                    }, {
-                        label: 'Through Traffic',
-                        data: monthlyData.map(m => m.throughTraffic),
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
+                });
+            }
+            // DataTables: Only initialize if the table exists
+            if ($('#eventsTable').length) {
+                $('#eventsTable').DataTable({
+                    order: [[1, 'desc']],
+                    pageLength: 25,
+                    dom: 'Bfrtip',
+                    buttons: [
+                        {
+                            extend: 'collection',
+                            text: 'Export',
+                            buttons: [
+                                'copy',
+                                'excel',
+                                'csv',
+                                'pdf',
+                                'print'
+                            ]
                         }
+                    ],
+                    language: {
+                        search: "Search events:"
                     }
-                }
-            });
+                });
+            }
         });
-
-        // Auto-refresh every 5 minutes
-        setTimeout(() => {
-            window.location.reload();
-        }, 5 * 60 * 1000);
 
         // Initialize date pickers
         flatpickr("#startDate", {
@@ -624,7 +522,7 @@
                 document.getElementById('entryTagConfidence').textContent = event.entryTagConfidence !== undefined ? event.entryTagConfidence + '%' : '-';
                 document.getElementById('entryCountry').textContent = event.entryCountry || '-';
                 // Exit details
-                document.getElementById('exitTime').textContent = event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still parked';
+                document.getElementById('exitTime').textContent = (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still parked';
                 document.getElementById('exitVRM').textContent = event.VRM || '-';
                 document.getElementById('exitCamera').textContent = event.exitCamera || '-';
                 document.getElementById('exitDirection').textContent = event.exitDirection || '-';
@@ -735,6 +633,29 @@
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
+
+        function markAsExited(eventId) {
+            if (confirm('Are you sure you want to mark this event as exited?')) {
+                fetch(`/api/events/${eventId}/exit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // No need to reload the page
+                    } else {
+                        alert('Failed to mark event as exited: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while marking the event as exited');
+                });
+            }
+        }
     </script>
 </body>
 </html> 

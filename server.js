@@ -14,9 +14,16 @@ const { generateParkingEvents } = require('./eventGeneration');
 const pool = require('./dbPool');
 const { fetchWhitelistsFromMonday, getCachedWhitelists, isWhitelisted } = require('./mondayWhitelistService');
 const { v4: uuidv4 } = require('uuid');
+const logger = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+// Add request logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Helper function for VRM normalization
 function normalizeVRM(vrm) {
@@ -153,7 +160,7 @@ app.get('/realtime', async (req, res) => {
             selectedCarPark
         });
     } catch (err) {
-        console.error('Error fetching data:', err);
+        logger.error('Error fetching data:', err);
         res.status(500).render('error', { message: 'Error fetching data' });
     } finally {
         if (conn) conn.release();
@@ -168,10 +175,17 @@ app.get('/events', async (req, res) => {
         // Get all car parks for filter dropdown
         const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
         const selectedCarPark = req.query.siteId || '';
-        const selectedStatus = req.query.status || '';
-        const eventType = req.query.eventType || 'all';
-        
-        // Build query to fetch only completed events
+        const vrm = req.query.vrm || '';
+        // Default to last 24 hours if no date range provided or if empty
+        let startDate = req.query.startDate;
+        let endDate = req.query.endDate;
+        if (!startDate || !endDate || startDate.trim() === '' || endDate.trim() === '') {
+            const now = new Date();
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            startDate = yesterday.toISOString().slice(0, 10);
+            endDate = now.toISOString().slice(0, 10);
+        }
+        // Build query with filters
         let query = `
             SELECT 
                 pe.id,
@@ -179,219 +193,49 @@ app.get('/events', async (req, res) => {
                 pe.VRM,
                 pe.entryTime,
                 pe.exitTime,
-                pe.durationMinutes,
-                pe.throughTraffic,
+                pe.status,
                 pe.entryDetectionId,
                 pe.exitDetectionId,
-                pe.entryCameraId,
-                pe.exitCameraId,
-                pe.status,
-                cp.name as carParkName,
-                entry_d.VRM as entryVRM,
-                entry_d.timestamp as entryTimestamp,
-                (LENGTH(entry_d.image1) > 0) as hasEntryImage1,
-                (LENGTH(entry_d.image2) > 0) as hasEntryImage2,
-                exit_d.VRM as exitVRM,
-                exit_d.timestamp as exitTimestamp,
-                (LENGTH(exit_d.image1) > 0) as hasExitImage1,
-                (LENGTH(exit_d.image2) > 0) as hasExitImage2,
-                entry_cam.name as entryCameraName,
-                exit_cam.name as exitCameraName
+                (LENGTH(entry_d.image1) > 0) as hasEntryImage,
+                (LENGTH(exit_d.image1) > 0) as hasExitImage
             FROM parking_events pe
-            JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
-            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
-            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
-            WHERE pe.exitTime IS NOT NULL
+            WHERE 1=1
+                AND pe.VRM IS NOT NULL AND pe.VRM != '' AND LOWER(pe.VRM) != 'unknown'
+                AND (entry_d.direction IS NULL OR (entry_d.direction != '' AND LOWER(entry_d.direction) != 'unknown'))
         `;
-        const queryParams = [];
-        
+        const params = [];
         if (selectedCarPark) {
             query += ' AND pe.siteId = ?';
-            queryParams.push(selectedCarPark);
+            params.push(selectedCarPark);
         }
-        
-        if (selectedStatus) {
-            query += ' AND pe.status = ?';
-            queryParams.push(selectedStatus);
+        if (startDate) {
+            query += ' AND pe.entryTime >= ?';
+            params.push(startDate);
         }
-        
-        query += ' ORDER BY pe.entryTime DESC';
-        
-        const events = await conn.query(query, queryParams);
-        
-        // Get message from query parameter if it exists
-        const message = req.query.message;
-        
+        if (endDate) {
+            query += ' AND pe.entryTime <= ?';
+            params.push(endDate + ' 23:59:59');
+        }
+        if (vrm) {
+            query += ' AND pe.VRM LIKE ?';
+            params.push(`%${vrm}%`);
+        }
+        query += ' ORDER BY pe.entryTime DESC LIMIT 100';
+        console.log('EVENTS QUERY:', query, params);
+        const events = await conn.query(query, params);
         res.render('events', { 
+            events,
             carparks,
             selectedCarPark,
-            selectedStatus,
-            events,
-            message,
-            tab: 'completed'
+            startDate,
+            endDate,
+            vrm
         });
     } catch (err) {
-        console.error('Error loading events:', err);
-        res.status(500).render('error', { message: 'Error loading events' });
-    } finally {
-        if (conn) conn.release();
-    }
-});
-
-// Currently Parked tab
-app.get('/currently-parked', async (req, res) => {
-    let conn;
-    try {
-        conn = await pool.getConnection();
-        // Get all car parks for filter dropdown
-        const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
-        const selectedCarPark = req.query.siteId || '';
-        const selectedStatus = req.query.status || '';
-        
-        // Build query to fetch only currently parked events
-        let query = `
-            SELECT 
-                pe.id,
-                pe.siteId,
-                pe.VRM,
-                pe.entryTime,
-                pe.exitTime,
-                pe.durationMinutes,
-                pe.throughTraffic,
-                pe.entryDetectionId,
-                pe.exitDetectionId,
-                pe.entryCameraId,
-                pe.exitCameraId,
-                pe.status,
-                cp.name as carParkName,
-                entry_d.VRM as entryVRM,
-                entry_d.timestamp as entryTimestamp,
-                (LENGTH(entry_d.image1) > 0) as hasEntryImage1,
-                (LENGTH(entry_d.image2) > 0) as hasEntryImage2,
-                entry_cam.name as entryCameraName,
-                exit_cam.name as exitCameraName
-            FROM parking_events pe
-            JOIN carparks cp ON pe.siteId = cp.siteId
-            LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
-            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
-            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
-            WHERE pe.exitTime IS NULL
-        `;
-        const queryParams = [];
-        
-        if (selectedCarPark) {
-            query += ' AND pe.siteId = ?';
-            queryParams.push(selectedCarPark);
-        }
-        
-        if (selectedStatus) {
-            query += ' AND pe.status = ?';
-            queryParams.push(selectedStatus);
-        }
-        
-        query += ' ORDER BY pe.entryTime DESC';
-        
-        const events = await conn.query(query, queryParams);
-        
-        // Get message from query parameter if it exists
-        const message = req.query.message;
-        
-        res.render('events', { 
-            carparks,
-            selectedCarPark,
-            selectedStatus,
-            events,
-            message,
-            tab: 'parked'
-        });
-    } catch (err) {
-        console.error('Error loading currently parked:', err);
-        res.status(500).render('error', { message: 'Error loading currently parked' });
-    } finally {
-        if (conn) conn.release();
-    }
-});
-
-// All Events tab
-app.get('/all-events', async (req, res) => {
-    let conn;
-    try {
-        conn = await pool.getConnection();
-        // Get all car parks for filter dropdown
-        const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
-        const selectedCarPark = req.query.siteId || '';
-        const selectedStatus = req.query.status || '';
-        
-        // Build query to fetch all events
-        let query = `
-            SELECT 
-                pe.id,
-                pe.siteId,
-                pe.VRM,
-                pe.entryTime,
-                pe.exitTime,
-                pe.durationMinutes,
-                pe.throughTraffic,
-                pe.entryDetectionId,
-                pe.exitDetectionId,
-                pe.entryCameraId,
-                pe.exitCameraId,
-                pe.status,
-                cp.name as carParkName,
-                entry_d.VRM as entryVRM,
-                entry_d.timestamp as entryTimestamp,
-                (LENGTH(entry_d.image1) > 0) as hasEntryImage1,
-                (LENGTH(entry_d.image2) > 0) as hasEntryImage2,
-                exit_d.VRM as exitVRM,
-                exit_d.timestamp as exitTimestamp,
-                (LENGTH(exit_d.image1) > 0) as hasExitImage1,
-                (LENGTH(exit_d.image2) > 0) as hasExitImage2,
-                entry_cam.name as entryCameraName,
-                exit_cam.name as exitCameraName
-            FROM parking_events pe
-            JOIN carparks cp ON pe.siteId = cp.siteId
-            LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
-            LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
-            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
-            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
-        `;
-        const queryParams = [];
-        
-        if (selectedCarPark || selectedStatus) {
-            query += ' WHERE';
-            if (selectedCarPark) {
-                query += ' pe.siteId = ?';
-                queryParams.push(selectedCarPark);
-            }
-            if (selectedCarPark && selectedStatus) {
-                query += ' AND';
-            }
-            if (selectedStatus) {
-                query += ' pe.status = ?';
-                queryParams.push(selectedStatus);
-            }
-        }
-        
-        query += ' ORDER BY pe.entryTime DESC';
-        
-        const events = await conn.query(query, queryParams);
-        
-        // Get message from query parameter if it exists
-        const message = req.query.message;
-        
-        res.render('events', { 
-            carparks,
-            selectedCarPark,
-            selectedStatus,
-            events,
-            message,
-            tab: 'all'
-        });
-    } catch (err) {
-        console.error('Error loading all events:', err);
-        res.status(500).render('error', { message: 'Error loading all events' });
+        console.error('Error loading events (with images):', err);
+        res.status(500).send('Error loading events (with images)');
     } finally {
         if (conn) conn.release();
     }
@@ -642,57 +486,37 @@ setInterval(async () => {
         conn = await pool.getConnection();
         // Get all car parks with automation enabled
         const carparks = await conn.query('SELECT * FROM pcn_automation_settings WHERE isEnabled = true');
+        logger.info(`[PCN Automation] Starting job for ${carparks.length} enabled car parks`);
+        
         for (const cp of carparks) {
             const siteId = cp.siteId;
             const grace = cp.gracePeriodMinutes || 0;
+            logger.info(`[PCN Automation] Processing car park ${siteId} with grace period ${grace} minutes`);
+            
             // Get all active, autoEnforce rules for this car park
             const rules = await conn.query('SELECT * FROM rules WHERE siteId = ? AND isActive = true AND autoEnforce = true', [siteId]);
-            if (!rules.length) continue;
+            if (!rules.length) {
+                logger.info(`[PCN Automation] No active auto-enforce rules found for car park ${siteId}`);
+                continue;
+            }
+            logger.info(`[PCN Automation] Found ${rules.length} active auto-enforce rules for car park ${siteId}`);
+            
             // Get all completed events since lastChecked (or last 24h if never checked)
             const since = cp.lastChecked ? new Date(cp.lastChecked) : new Date(Date.now() - 24*60*60*1000);
             const events = await conn.query(
                 'SELECT * FROM parking_events WHERE siteId = ? AND exitTime IS NOT NULL AND entryTime > ?',
                 [siteId, since]
             );
+            logger.info(`[PCN Automation] Processing ${events.length} events for car park ${siteId} since ${since.toISOString()}`);
+            
+            // Process each event
             for (const event of events) {
-                // For each rule, check for violation
                 for (const rule of rules) {
+                    // Check if event violates rule
                     let violated = false;
-                    let reason = '';
+                    let reason = null;
                     
-                    // Check rule type and conditions
-                    switch (rule.ruleType) {
-                        case 'time_limit':
-                            if (rule.maxDurationMinutes && event.durationMinutes > (rule.maxDurationMinutes + grace)) {
-                                violated = true;
-                                reason = `Overstayed: ${event.durationMinutes} min > limit ${rule.maxDurationMinutes} min (+${grace} grace)`;
-                            }
-                            break;
-                            
-                        case 'whitelist':
-                            // Check if VRM is in whitelist
-                            const [whitelist] = await conn.query(
-                                'SELECT COUNT(*) as count FROM rule_whitelist WHERE ruleId = ? AND VRM = ?',
-                                [rule.id, event.VRM]
-                            );
-                            if (whitelist.count === 0) {
-                                violated = true;
-                                reason = 'Vehicle not in whitelist';
-                            }
-                            break;
-                            
-                        case 'payment':
-                            // Check if payment was made for this event
-                            const [payment] = await conn.query(
-                                'SELECT COUNT(*) as count FROM payments WHERE eventId = ? AND status = "completed"',
-                                [event.id]
-                            );
-                            if (payment.count === 0) {
-                                violated = true;
-                                reason = 'No payment made for parking';
-                            }
-                            break;
-                    }
+                    // Rule violation checks here...
                     
                     if (violated) {
                         // Check if PCN already exists for this event/rule
@@ -700,7 +524,10 @@ setInterval(async () => {
                             'SELECT id FROM pcns WHERE siteId = ? AND VRM = ? AND ruleId = ? AND issueTime = ?',
                             [siteId, event.VRM, rule.id, event.exitTime]
                         );
-                        if (existing.length) continue;
+                        if (existing.length) {
+                            console.log(`[PCN Automation] PCN already exists for event ${event.id}, rule ${rule.id}`);
+                            continue;
+                        }
                         
                         // Generate PCN
                         const dueDate = new Date();
@@ -717,24 +544,29 @@ setInterval(async () => {
                             ]
                         );
                         
+                        console.log(`[PCN Automation] Generated PCN #${pcn.insertId} for event ${event.id}, rule ${rule.id}, VRM ${event.VRM}`);
+                        
                         // Log PCN generation
                         await conn.query(
                             `INSERT INTO pcn_audit_log (
-                                pcnId, action, details
-                            ) VALUES (?, 'issued', ?)`,
-                            [pcn.insertId, JSON.stringify({
+                                pcnId, eventId, ruleId, siteId, action, message
+                            ) VALUES (?, ?, ?, ?, 'issued', ?)`,
+                            [pcn.insertId, event.id, rule.id, siteId, JSON.stringify({
                                 ruleId: rule.id,
                                 eventId: event.id,
-                                reason: reason || rule.pcnReason
+                                reason: reason || rule.pcnReason,
+                                amount: rule.pcnAmount,
+                                dueDate: dueDate
                             })]
                         );
                         
                         // Send notifications if enabled
                         if (rule.notifyOnIssue && cp.notifyEmails) {
                             const emails = cp.notifyEmails.split(',').map(e => e.trim());
+                            console.log(`[PCN Automation] Sending notifications to ${emails.length} recipients for PCN #${pcn.insertId}`);
                             for (const email of emails) {
                                 // TODO: Implement actual email sending
-                                console.log(`Would send PCN notification to ${email} for PCN #${pcn.insertId}`);
+                                console.log(`[PCN Automation] Would send PCN notification to ${email} for PCN #${pcn.insertId}`);
                             }
                         }
                     }
@@ -746,13 +578,14 @@ setInterval(async () => {
                 'UPDATE pcn_automation_settings SET lastChecked = NOW() WHERE siteId = ?',
                 [siteId]
             );
+            console.log(`[PCN Automation] Completed processing for car park ${siteId}`);
         }
     } catch (err) {
-        console.error('Error in PCN automation job:', err);
+        console.error('[PCN Automation] Error in PCN automation job:', err);
     } finally {
         if (conn) conn.release();
     }
-}, 5 * 60 * 1000); // Run every 5 minutes
+}, 5 * 60 * 1000);
 
 // Admin navigation
 app.get('/admin', (req, res) => {
@@ -786,6 +619,7 @@ app.post('/admin/carparks/add', async (req, res) => {
             'INSERT INTO carparks (siteId, name, throughTrafficMinutes) VALUES (?, ?, ?)',
             [siteId, name, throughTrafficMinutes]
         );
+        console.log(`[CARPARK] Added: siteId=${siteId}, name=${name}, throughTrafficMinutes=${throughTrafficMinutes}, at ${new Date().toISOString()}`);
         res.redirect('/admin/carparks');
     } catch (err) {
         console.error('Error adding car park:', err);
@@ -804,6 +638,7 @@ app.post('/admin/carparks/edit', async (req, res) => {
             'UPDATE carparks SET siteId = ?, name = ?, throughTrafficMinutes = ? WHERE siteId = ?',
             [siteId, name, throughTrafficMinutes, originalSiteId]
         );
+        console.log(`[CARPARK] Edited: originalSiteId=${originalSiteId}, newSiteId=${siteId}, name=${name}, throughTrafficMinutes=${throughTrafficMinutes}, at ${new Date().toISOString()}`);
         res.redirect('/admin/carparks');
     } catch (err) {
         console.error('Error updating car park:', err);
@@ -818,14 +653,13 @@ app.post('/admin/carparks/delete', async (req, res) => {
     try {
         const { siteId } = req.body;
         conn = await pool.getConnection();
-        
         // Check if car park has cameras
         const cameras = await conn.query('SELECT COUNT(*) as count FROM cameras WHERE carParkId = ?', [siteId]);
         if (cameras[0].count > 0) {
             return res.status(400).render('error', { message: 'Cannot delete car park: has cameras assigned' });
         }
-        
         await conn.query('DELETE FROM carparks WHERE siteId = ?', [siteId]);
+        console.log(`[CARPARK] Deleted: siteId=${siteId}, at ${new Date().toISOString()}`);
         res.redirect('/admin/carparks');
     } catch (err) {
         console.error('Error deleting car park:', err);
@@ -848,6 +682,8 @@ app.get('/admin/cameras', async (req, res) => {
                 c.isEntryTrigger,
                 c.isExitTrigger,
                 c.direction,
+                c.entryDirection,
+                c.exitDirection,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -873,7 +709,7 @@ app.get('/admin/cameras', async (req, res) => {
 app.post('/admin/cameras/edit', async (req, res) => {
     let conn;
     try {
-        const { originalName, name, carParkId, isEntryTrigger, isExitTrigger, direction } = req.body;
+        const { originalName, name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
         conn = await pool.getConnection();
         
         // Check if another camera has this name (excluding the current camera)
@@ -896,14 +732,18 @@ app.post('/admin/cameras/edit', async (req, res) => {
                 carParkId = ?, 
                 isEntryTrigger = ?, 
                 isExitTrigger = ?, 
-                direction = ?
+                direction = ?,
+                entryDirection = ?,
+                exitDirection = ?
             WHERE name = ?
         `, [
             name,
             carParkId || null,  // Keep as string
             isEntry,
             isExit,
-            direction, 
+            direction,
+            entryDirection,
+            exitDirection,
             originalName
         ]);
         
@@ -915,6 +755,8 @@ app.post('/admin/cameras/edit', async (req, res) => {
                 c.isEntryTrigger,
                 c.isExitTrigger,
                 c.direction,
+                c.entryDirection,
+                c.exitDirection,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -925,6 +767,7 @@ app.post('/admin/cameras/edit', async (req, res) => {
             success: true,
             camera: updatedCamera[0]
         });
+        console.log(`[CAMERA] Edited: originalName=${originalName}, newName=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error updating camera:', err);
         res.status(500).json({ error: err.message });
@@ -936,7 +779,7 @@ app.post('/admin/cameras/edit', async (req, res) => {
 app.post('/admin/cameras/add', async (req, res) => {
     let conn;
     try {
-        const { name, carParkId, isEntryTrigger, isExitTrigger, direction } = req.body;
+        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
         conn = await pool.getConnection();
         
         // Check if camera with this name already exists
@@ -952,9 +795,9 @@ app.post('/admin/cameras/add', async (req, res) => {
         
         // Insert new camera
         await conn.query(`
-            INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction)
-            VALUES (?, ?, ?, ?, ?)
-        `, [name, carParkId || null, isEntry, isExit, direction]);
+            INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [name, carParkId || null, isEntry, isExit, direction, entryDirection, exitDirection]);
         
         // Get the newly created camera with car park info
         const newCamera = await conn.query(`
@@ -964,6 +807,8 @@ app.post('/admin/cameras/add', async (req, res) => {
                 c.isEntryTrigger,
                 c.isExitTrigger,
                 c.direction,
+                c.entryDirection,
+                c.exitDirection,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -974,6 +819,7 @@ app.post('/admin/cameras/add', async (req, res) => {
             success: true,
             camera: newCamera[0]
         });
+        console.log(`[CAMERA] Added: name=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error adding camera:', err);
         res.status(500).json({ error: err.message });
@@ -997,6 +843,7 @@ app.post('/admin/cameras/delete', async (req, res) => {
         
         await conn.query('DELETE FROM cameras WHERE name = ?', [name]);
         res.json({ success: true });
+        console.log(`[CAMERA] Deleted: name=${name}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error deleting camera:', err);
         res.status(500).json({ error: err.message });
@@ -1380,6 +1227,15 @@ app.get('/events/:id', async (req, res) => {
         if (!event) {
             return res.status(404).render('error', { message: 'Event not found' });
         }
+        // Fetch detection flags for entry and exit detections
+        let entryFlags = [];
+        let exitFlags = [];
+        if (event.entryDetectionId) {
+            entryFlags = await conn.query('SELECT * FROM detection_flags WHERE detectionId = ?', [event.entryDetectionId]);
+        }
+        if (event.exitDetectionId) {
+            exitFlags = await conn.query('SELECT * FROM detection_flags WHERE detectionId = ?', [event.exitDetectionId]);
+        }
         // Fetch other events at the same car park with the same VRM (excluding this event)
         const relatedEvents = await conn.query(`
             SELECT id, entryTime, exitTime, durationMinutes, throughTraffic
@@ -1395,10 +1251,39 @@ app.get('/events/:id', async (req, res) => {
             WHERE c.carParkId = ? AND d.VRM = ?
             ORDER BY d.timestamp ASC
         `, [event.siteId, event.VRM]);
-        res.render('event_details', { event, pcns: [], entryFlags: [], exitFlags: [], relatedEvents, relatedDetections });
+        res.render('event_details', { event, pcns: [], entryFlags, exitFlags, relatedEvents, relatedDetections });
     } catch (err) {
         console.error('Error loading event details:', err);
         res.status(500).render('error', { message: 'Error loading event details' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Delete and reprocess event endpoint
+app.post('/events/:id/delete-reprocess', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const eventId = req.params.id;
+        // Get the event
+        const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [eventId]);
+        if (!event) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        // Delete the event
+        await conn.query('DELETE FROM parking_events WHERE id = ?', [eventId]);
+        // Reset processed flags for entry and exit detections
+        const detectionIds = [];
+        if (event.entryDetectionId) detectionIds.push(event.entryDetectionId);
+        if (event.exitDetectionId) detectionIds.push(event.exitDetectionId);
+        if (detectionIds.length > 0) {
+            await conn.query('UPDATE anpr_detections SET processed = FALSE, processed_at = NULL WHERE id IN (?)', [detectionIds]);
+        }
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting/reprocessing event:', err);
+        res.status(500).json({ error: 'Error deleting/reprocessing event' });
     } finally {
         if (conn) conn.release();
     }
@@ -1797,7 +1682,15 @@ app.get('/api/events/:id', async (req, res) => {
     let conn;
     try {
         conn = await pool.getConnection();
-        const eventId = req.params.id;
+        const eventId = parseInt(req.params.id, 10);
+        
+        // Debug logging
+        console.log(`[EVENT API] Request received for event ID: ${eventId} (type: ${typeof eventId})`);
+        
+        if (isNaN(eventId)) {
+            console.log(`[EVENT API] Invalid event ID: ${req.params.id}`);
+            return res.status(400).json({ error: 'Invalid event ID' });
+        }
         
         // Get the event with all related information
         const [event] = await conn.query(`
@@ -1833,13 +1726,26 @@ app.get('/api/events/:id', async (req, res) => {
             WHERE pe.id = ?
         `, [eventId]);
 
+        // Debug logging
+        console.log(`[EVENT API] Query result:`, event ? 'Event found' : 'Event not found');
+        if (event) {
+            console.log(`[EVENT API] Event details:`, {
+                id: event.id,
+                VRM: event.VRM,
+                siteId: event.siteId,
+                entryTime: event.eventEntryTime,
+                exitTime: event.eventExitTime
+            });
+        }
+
         if (!event) {
+            console.log(`[EVENT API] No event found with ID: ${eventId}`);
             return res.status(404).json({ error: 'Event not found' });
         }
 
         res.json(event);
     } catch (err) {
-        console.error('Error fetching event details:', err);
+        console.error('[EVENT API] Error fetching event details:', err);
         res.status(500).json({ error: 'Error fetching event details' });
     } finally {
         if (conn) conn.release();
@@ -1851,14 +1757,36 @@ setInterval(async () => {
     let conn;
     try {
         conn = await pool.getConnection();
-        await conn.query(`
+        logger.info('[PCN Housekeeping] Starting scheduled cleanup of orphaned PCNs');
+        
+        // Get count of orphaned PCNs before deletion
+        const [countResult] = await conn.query(`
+            SELECT COUNT(*) as count 
+            FROM pcns 
+            WHERE eventId IS NOT NULL 
+              AND eventId NOT IN (SELECT id FROM parking_events)
+        `);
+        const orphanedCount = countResult.count;
+        
+        // Delete orphaned PCNs
+        const result = await conn.query(`
             DELETE FROM pcns 
             WHERE eventId IS NOT NULL 
               AND eventId NOT IN (SELECT id FROM parking_events)
         `);
-        console.log('[Housekeeping] Orphaned PCNs cleaned up');
+        
+        logger.info(`[PCN Housekeeping] Cleaned up ${result.affectedRows} orphaned PCNs out of ${orphanedCount} total orphaned PCNs`);
+        
+        // Log details of deleted PCNs
+        if (result.affectedRows > 0) {
+            logger.info(`[PCN Housekeeping] Deletion details: ${JSON.stringify({
+                deletedCount: result.affectedRows,
+                totalOrphaned: orphanedCount,
+                timestamp: new Date().toISOString()
+            })}`);
+        }
     } catch (err) {
-        console.error('[Housekeeping] Error cleaning up orphaned PCNs:', err);
+        logger.error(`[PCN Housekeeping] Error in scheduled cleanup: ${err.message}`, { error: err });
     } finally {
         if (conn) conn.release();
     }
@@ -2279,36 +2207,119 @@ app.get('/admin/whitelists', (req, res) => {
 
 // Placeholder: Payment lookup function (to be implemented)
 async function isPaymentValid(siteId, vrm, entryTime, exitTime) {
-  // TODO: Implement payment lookup logic
-  // Return true if a payment covers the event duration
-  return false;
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    
+    // Convert times to Date objects if they're strings
+    const entry = new Date(entryTime);
+    const exit = new Date(exitTime);
+    
+    // Find any payment that covers this parking period
+    const [payments] = await conn.query(`
+      SELECT * FROM payments 
+      WHERE siteId = ? 
+      AND vrm = ? 
+      AND paymentStart <= ? 
+      AND paymentEnd >= ?
+      ORDER BY paymentStart DESC
+      LIMIT 1
+    `, [siteId, vrm.toUpperCase(), entry, exit]);
+    
+    if (payments && payments.length > 0) {
+      const payment = payments[0];
+      console.log(`[PAYMENT] Found valid payment for VRM=${vrm} at siteId=${siteId}:`, {
+        paymentStart: payment.paymentStart,
+        paymentEnd: payment.paymentEnd,
+        entryTime: entry,
+        exitTime: exit
+      });
+      return true;
+    }
+    
+    // If no payment found, check for overstay
+    const [overstayPayments] = await conn.query(`
+      SELECT * FROM payments 
+      WHERE siteId = ? 
+      AND vrm = ? 
+      AND paymentStart <= ? 
+      AND paymentEnd >= ?
+      ORDER BY paymentStart DESC
+      LIMIT 1
+    `, [siteId, vrm.toUpperCase(), entry, entry]);
+    
+    if (overstayPayments && overstayPayments.length > 0) {
+      const payment = overstayPayments[0];
+      console.log(`[PAYMENT] Found overstay for VRM=${vrm} at siteId=${siteId}:`, {
+        paymentStart: payment.paymentStart,
+        paymentEnd: payment.paymentEnd,
+        entryTime: entry,
+        exitTime: exit
+      });
+      return 'overstay';
+    }
+    
+    console.log(`[PAYMENT] No valid payment found for VRM=${vrm} at siteId=${siteId}`);
+    return false;
+  } catch (err) {
+    console.error('[PAYMENT] Error checking payment:', err);
+    return false;
+  } finally {
+    if (conn) conn.release();
+  }
 }
 
-// Finalize a single event (can be called by job or API)
+// Combined whitelist and payment check
+async function checkWhitelistAndPayment(conn, siteId, vrm, entryTime, exitTime) {
+    // Whitelist check (no startDate/endDate)
+    const [whitelistMatch] = await conn.query(
+        `SELECT * FROM whitelist WHERE vrm = ? AND carParkId = ? AND active = 1`,
+        [vrm, siteId]
+    );
+    if (whitelistMatch) {
+        return { status: 'whitelisted', whitelist: whitelistMatch, payment: null };
+    }
+    // Payment check (covers full period)
+    const [payments] = await conn.query(
+        `SELECT * FROM payments WHERE siteId = ? AND vrm = ? AND paymentStart <= ? AND paymentEnd >= ? ORDER BY paymentStart DESC LIMIT 1`,
+        [siteId, vrm.toUpperCase(), entryTime, exitTime]
+    );
+    if (payments && payments.length > 0) {
+        return { status: 'paid', whitelist: null, payment: payments[0] };
+    }
+    // Overstay check (covers entry only)
+    const [overstayPayments] = await conn.query(
+        `SELECT * FROM payments WHERE siteId = ? AND vrm = ? AND paymentStart <= ? AND paymentEnd >= ? ORDER BY paymentStart DESC LIMIT 1`,
+        [siteId, vrm.toUpperCase(), entryTime, entryTime]
+    );
+    if (overstayPayments && overstayPayments.length > 0) {
+        return { status: 'overstay', whitelist: null, payment: overstayPayments[0] };
+    }
+    // Unpaid
+    return { status: 'unpaid', whitelist: null, payment: null };
+}
+
+// Update finalizeEvent to use the combined check and log/report all details
 async function finalizeEvent(event, conn) {
-  const { id, siteId, VRM, entryTime, exitTime } = event;
-  const now = new Date();
-  // Check whitelist
-  const whitelisted = isWhitelisted(siteId, VRM, now);
-  if (whitelisted) {
-    console.log(`[FINALIZE] VRM=${VRM} FOUND on whitelist for siteId=${siteId}`);
-  } else {
-    console.log(`[FINALIZE] VRM=${VRM} NOT found on whitelist for siteId=${siteId}`);
-  }
-  // Check payment (placeholder)
-  const paid = await isPaymentValid(siteId, VRM, entryTime, exitTime);
-  let status = 'unpaid';
-  if (whitelisted) status = 'whitelisted';
-  else if (paid) status = 'paid';
-  // Update event (only status column)
-  await conn.query('UPDATE parking_events SET status = ? WHERE id = ?', [status, id]);
-  return status;
+    const { id, siteId, VRM, entryTime, exitTime } = event;
+    const result = await checkWhitelistAndPayment(conn, siteId, VRM, entryTime, exitTime);
+    let updateFields = { status: result.status };
+    if (result.whitelist) updateFields.whitelistMatch = JSON.stringify(result.whitelist);
+    if (result.payment) updateFields.paymentMatch = JSON.stringify(result.payment);
+    // Build update query
+    const setClause = Object.keys(updateFields).map(k => `${k} = ?`).join(', ');
+    const values = Object.values(updateFields);
+    values.push(id);
+    await conn.query(`UPDATE parking_events SET ${setClause} WHERE id = ?`, values);
+    // Log/report
+    console.log(`[FINALIZE] Event ${id} (${VRM}) result:`, result);
+    return result.status;
 }
 
 // Admin endpoint to recheck/finalize all events
 app.post('/admin/events/recheck-all', async (req, res) => {
   let conn;
-  let summary = { total: 0, whitelisted: 0, paid: 0, unpaid: 0 };
+  let summary = { total: 0, whitelisted: 0, paid: 0, overstay: 0, unpaid: 0 };
   try {
     conn = await pool.getConnection();
     // Get all events (or filter as needed)
@@ -2318,9 +2329,10 @@ app.post('/admin/events/recheck-all', async (req, res) => {
       summary.total++;
       if (status === 'whitelisted') summary.whitelisted++;
       else if (status === 'paid') summary.paid++;
+      else if (status === 'overstay') summary.overstay++;
       else summary.unpaid++;
     }
-    console.log(`[FINALIZE-ALL] Rechecked ${summary.total} events: ${summary.whitelisted} whitelisted, ${summary.paid} paid, ${summary.unpaid} unpaid.`);
+    console.log(`[FINALIZE-ALL] Rechecked ${summary.total} events: ${summary.whitelisted} whitelisted, ${summary.paid} paid, ${summary.overstay} overstay, ${summary.unpaid} unpaid.`);
     res.json({ success: true, summary });
   } catch (err) {
     console.error('[FINALIZE-ALL] Error rechecking all events:', err);
@@ -2386,4 +2398,463 @@ app.post('/admin/events/:id/finalize', async (req, res) => {
   } finally {
     if (conn) conn.release();
   }
+});
+
+// --- REAL-TIME CONSOLE LOG STREAMING FOR ADMIN ---
+const LOG_BUFFER_SIZE = 500;
+const logBuffer = [];
+
+function addLogLine(line, type = 'log') {
+    const entry = {
+        timestamp: new Date().toISOString(),
+        type,
+        line: typeof line === 'string' ? line : JSON.stringify(line)
+    };
+    logBuffer.push(entry);
+    if (logBuffer.length > LOG_BUFFER_SIZE) logBuffer.shift();
+    io.emit('admin-log', entry);
+}
+
+// Patch console.log and console.error
+const origLog = console.log;
+const origErr = console.error;
+console.log = function(...args) {
+    origLog.apply(console, args);
+    addLogLine(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '), 'log');
+};
+console.error = function(...args) {
+    origErr.apply(console, args);
+    addLogLine(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '), 'error');
+};
+
+// Admin route to view logs
+app.get('/admin/logs', (req, res) => {
+    res.render('admin/logs', { logs: logBuffer });
+});
+
+app.get('/admin/carparks/:siteId', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const carPark = await conn.query('SELECT * FROM carparks WHERE siteId = ?', [req.params.siteId]);
+        if (!carPark || carPark.length === 0) {
+            return res.status(404).send('Car park not found');
+        }
+
+        // Get today's date range
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Get whitelist statistics
+        const whitelistStatsRaw = await conn.query(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) as active
+            FROM whitelist
+            WHERE carParkId = ?
+        `, [req.params.siteId]);
+        const whitelistStats = (whitelistStatsRaw && whitelistStatsRaw[0]) ? {
+            total: Number(whitelistStatsRaw[0].total) || 0,
+            active: Number(whitelistStatsRaw[0].active) || 0
+        } : { total: 0, active: 0 };
+
+        // Get today's statistics
+        const startOfDay = new Date(today);
+        const endOfDay = new Date(tomorrow);
+        const todayStatsRaw = await conn.query(`
+            SELECT 
+                COUNT(*) as totalEvents,
+                SUM(CASE WHEN entryTime >= ? AND entryTime < ? THEN 1 ELSE 0 END) as newEvents,
+                SUM(CASE WHEN exitTime IS NULL THEN 1 ELSE 0 END) as currentlyParked,
+                SUM(CASE WHEN throughTraffic = 1 THEN 1 ELSE 0 END) as throughTraffic,
+                AVG(CASE WHEN exitTime IS NOT NULL THEN durationMinutes ELSE NULL END) as avgDuration,
+                MAX(CASE WHEN exitTime IS NOT NULL THEN durationMinutes ELSE NULL END) as longestStay,
+                MIN(CASE WHEN exitTime IS NOT NULL AND durationMinutes > 0 THEN durationMinutes ELSE NULL END) as shortestStay,
+                SUM(CASE WHEN status = 'whitelisted' THEN 1 ELSE 0 END) as whitelisted,
+                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid,
+                SUM(CASE WHEN status = 'overstay' THEN 1 ELSE 0 END) as overstay,
+                SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN exitTime IS NOT NULL THEN 1 ELSE 0 END) as completedEvents
+            FROM parking_events
+            WHERE siteId = ?
+            AND entryTime >= ?
+            AND entryTime < ?
+        `, [startOfDay, endOfDay, req.params.siteId, startOfDay, endOfDay]);
+        const todayStats0 = todayStatsRaw[0] || {};
+        const safeTodayStats = {
+            totalEvents: Number(todayStats0.totalEvents) || 0,
+            newEvents: Number(todayStats0.newEvents) || 0,
+            currentlyParked: Number(todayStats0.currentlyParked) || 0,
+            throughTraffic: Number(todayStats0.throughTraffic) || 0,
+            throughTrafficRate: todayStats0.totalEvents ? ((Number(todayStats0.throughTraffic) / Number(todayStats0.totalEvents)) * 100).toFixed(1) : 0,
+            avgDuration: Number(todayStats0.avgDuration) || 0,
+            longestStay: Number(todayStats0.longestStay) || 0,
+            shortestStay: Number(todayStats0.shortestStay) || 0,
+            whitelisted: Number(todayStats0.whitelisted) || 0,
+            paid: Number(todayStats0.paid) || 0,
+            overstay: Number(todayStats0.overstay) || 0,
+            overstayRate: todayStats0.totalEvents ? ((Number(todayStats0.overstay) / Number(todayStats0.totalEvents)) * 100).toFixed(1) : 0,
+            unpaid: Number(todayStats0.unpaid) || 0,
+            pending: Number(todayStats0.pending) || 0,
+            completedEvents: Number(todayStats0.completedEvents) || 0
+        };
+        // Calculate occupancy rate
+        const capacity = carPark[0].capacity || 100;
+        safeTodayStats.occupancyRate = Math.round((safeTodayStats.currentlyParked / capacity) * 100);
+        safeTodayStats.throughTrafficRate = safeTodayStats.totalEvents > 0 
+            ? Math.round((safeTodayStats.throughTraffic / safeTodayStats.totalEvents) * 100)
+            : 0;
+
+        // Get recent events
+        const recentEvents = await conn.query(`
+            SELECT *
+            FROM parking_events
+            WHERE siteId = ?
+            ORDER BY entryTime DESC
+            LIMIT 10
+        `, [req.params.siteId]);
+
+        // Convert hourly data to 24-hour array
+        const hourlyArray = Array(24).fill(0);
+        hourlyData.forEach(row => {
+            hourlyArray[row.hour] = row.count;
+        });
+
+        // Convert duration data to array
+        const durationArray = [0, 0, 0, 0, 0]; // [<30min, 30-60min, 1-2h, 2-4h, >4h]
+        durationData.forEach(row => {
+            switch(row.range) {
+                case '0-30': durationArray[0] = row.count; break;
+                case '30-60': durationArray[1] = row.count; break;
+                case '60-120': durationArray[2] = row.count; break;
+                case '120-240': durationArray[3] = row.count; break;
+                case '240+': durationArray[4] = row.count; break;
+            }
+        });
+
+        res.render('admin/carpark_dashboard', {
+            carPark: carPark[0],
+            whitelistStats,
+            todayStats: safeTodayStats,
+            recentEvents,
+            hourlyData: hourlyArray,
+            durationData: durationArray
+        });
+    } catch (err) {
+        console.error('Error in car park dashboard:', err);
+        res.status(500).send('Server error');
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Mark event as exited (clear 'currently parked' flag)
+app.post('/api/events/:id/exit', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const eventId = req.params.id;
+        // Get the event
+        const [event] = await conn.query('SELECT * FROM parking_events WHERE id = ?', [eventId]);
+        if (!event) {
+            console.warn(`[EXIT] Event not found for id=${eventId}`);
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        if (event.exitTime) {
+            console.warn(`[EXIT] Event id=${eventId} already has exitTime (${event.exitTime})`);
+            return res.status(400).json({ error: 'Event already exited' });
+        }
+        const now = new Date();
+        await conn.query('UPDATE parking_events SET exitTime = ?, durationMinutes = TIMESTAMPDIFF(MINUTE, entryTime, ?) WHERE id = ?', [now, now, eventId]);
+        console.log(`[EXIT] Event marked as exited: id=${eventId}, VRM=${event.VRM}, siteId=${event.siteId}, exitTime=${now.toISOString()}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[EXIT] Error marking event as exited:', err);
+        res.status(500).json({ error: 'Error marking event as exited' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Add vehicle to rule whitelist
+app.post('/admin/rules/:ruleId/whitelist/add', async (req, res) => {
+    let conn;
+    try {
+        const ruleId = req.params.ruleId;
+        const { vrm, maxDurationMinutes, startDate, endDate } = req.body;
+        conn = await pool.getConnection();
+        await conn.query(
+            'INSERT INTO rule_whitelist (ruleId, VRM, maxDurationMinutes, startDate, endDate) VALUES (?, ?, ?, ?, ?)',
+            [ruleId, vrm, maxDurationMinutes || null, startDate || null, endDate || null]
+        );
+        console.log(`[WHITELIST] Added: ruleId=${ruleId}, VRM=${vrm}, maxDurationMinutes=${maxDurationMinutes}, startDate=${startDate}, endDate=${endDate}, at ${new Date().toISOString()}`);
+        res.redirect('back');
+    } catch (err) {
+        console.error('Error adding to whitelist:', err);
+        res.status(500).render('error', { message: 'Error adding to whitelist' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Remove vehicle from rule whitelist
+app.post('/admin/rules/:ruleId/whitelist/delete', async (req, res) => {
+    let conn;
+    try {
+        const ruleId = req.params.ruleId;
+        const { whitelistId } = req.body;
+        conn = await pool.getConnection();
+        // Get VRM for logging
+        const [entry] = await conn.query('SELECT VRM FROM rule_whitelist WHERE id = ?', [whitelistId]);
+        await conn.query('DELETE FROM rule_whitelist WHERE id = ?', [whitelistId]);
+        console.log(`[WHITELIST] Removed: ruleId=${ruleId}, VRM=${entry ? entry.VRM : 'unknown'}, whitelistId=${whitelistId}, at ${new Date().toISOString()}`);
+        res.redirect('back');
+    } catch (err) {
+        console.error('Error removing from whitelist:', err);
+        res.status(500).render('error', { message: 'Error removing from whitelist' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// WebSocket server for real-time updates
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ noServer: true });
+
+// Store connected clients
+const clients = new Set();
+
+// Handle WebSocket connections
+wss.on('connection', (ws) => {
+    clients.add(ws);
+    
+    ws.on('close', () => {
+        clients.delete(ws);
+    });
+});
+
+// Broadcast new detection to all connected clients
+function broadcastDetection(detection) {
+    const message = JSON.stringify(detection);
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+        }
+    });
+}
+
+// Modify your existing detection endpoint to broadcast new detections
+app.post('/api/detections', (req, res) => {
+    // ... existing detection processing code ...
+    
+    // After saving the detection, broadcast it
+    broadcastDetection(detection);
+    
+    res.json({ success: true });
+});
+
+// Handle WebSocket upgrade
+server.on('upgrade', (request, socket, head) => {
+    if (request.url === '/ws/detections') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    }
+});
+
+// API: Event summary stats for dashboard
+app.get('/api/events/summary', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const siteId = req.query.siteId || '';
+        const timePeriod = req.query.timePeriod || '24h';
+        let start, end;
+        const now = new Date();
+        if (timePeriod === 'today') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        } else if (timePeriod === '7d') {
+            start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            end = now;
+        } else if (timePeriod === '30d') {
+            start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            end = now;
+        } else if (timePeriod === 'custom') {
+            start = req.query.startDate ? new Date(req.query.startDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = req.query.endDate ? new Date(req.query.endDate) : now;
+            end.setHours(23,59,59,999);
+        } else { // default 24h
+            start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            end = now;
+        }
+        const startStr = start.toISOString().slice(0, 19).replace('T', ' ');
+        const endStr = end.toISOString().slice(0, 19).replace('T', ' ');
+        let where = 'entryTime >= ? AND entryTime < ?';
+        const params = [startStr, endStr];
+        if (siteId) {
+            where += ' AND siteId = ?';
+            params.push(siteId);
+        }
+        const [row] = await conn.query(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN exitTime IS NOT NULL THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN exitTime IS NULL THEN 1 ELSE 0 END) as parked,
+                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid,
+                SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
+                SUM(CASE WHEN status = 'whitelisted' THEN 1 ELSE 0 END) as whitelisted,
+                SUM(CASE WHEN throughTraffic = 1 THEN 1 ELSE 0 END) as throughTraffic
+            FROM parking_events
+            WHERE ${where}
+        `, params);
+        res.json({
+            total: Number(row.total) || 0,
+            completed: Number(row.completed) || 0,
+            parked: Number(row.parked) || 0,
+            paid: Number(row.paid) || 0,
+            unpaid: Number(row.unpaid) || 0,
+            whitelisted: Number(row.whitelisted) || 0,
+            throughTraffic: Number(row.throughTraffic) || 0
+        });
+    } catch (err) {
+        console.error('Error loading event summary:', err);
+        res.status(500).json({ error: 'Error loading event summary' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// API: Filtered events for dashboard table
+app.get('/api/events/list', async (req, res) => {
+    let conn;
+    try {
+        console.log('[EVENTS LIST API] Request received');
+        conn = await pool.getConnection();
+        // --- Filtering logic ---
+        const siteId = req.query.siteId || '';
+        const timePeriod = req.query.timePeriod || '24h';
+        let start, end;
+        const now = new Date();
+        if (timePeriod === 'today') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        } else if (timePeriod === '7d') {
+            start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            end = now;
+        } else if (timePeriod === '30d') {
+            start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            end = now;
+        } else if (timePeriod === 'custom') {
+            start = req.query.startDate ? new Date(req.query.startDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = req.query.endDate ? new Date(req.query.endDate) : now;
+            end.setHours(23,59,59,999);
+        } else { // default 24h
+            start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            end = now;
+        }
+        const startStr = start.toISOString().slice(0, 19).replace('T', ' ');
+        const endStr = end.toISOString().slice(0, 19).replace('T', ' ');
+        let where = 'pe.entryTime >= ? AND pe.entryTime < ?';
+        const params = [startStr, endStr];
+        if (siteId) {
+            where += ' AND pe.siteId = ?';
+            params.push(siteId);
+        }
+        const query = `
+            SELECT 
+                pe.id,
+                pe.siteId,
+                pe.VRM,
+                pe.entryTime,
+                pe.exitTime,
+                pe.durationMinutes,
+                pe.throughTraffic,
+                pe.entryDetectionId,
+                pe.exitDetectionId,
+                pe.entryCameraId,
+                pe.exitCameraId,
+                pe.status,
+                cp.name as carParkName,
+                entry_d.VRM as entryVRM,
+                entry_d.timestamp as entryTimestamp,
+                (LENGTH(entry_d.image1) > 0) as hasEntryImage1,
+                (LENGTH(entry_d.image2) > 0) as hasEntryImage2,
+                exit_d.VRM as exitVRM,
+                exit_d.timestamp as exitTimestamp,
+                (LENGTH(exit_d.image1) > 0) as hasExitImage1,
+                (LENGTH(exit_d.image2) > 0) as hasExitImage2,
+                entry_cam.name as entryCameraName,
+                exit_cam.name as exitCameraName
+            FROM parking_events pe
+            JOIN carparks cp ON pe.siteId = cp.siteId
+            LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
+            LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            LEFT JOIN cameras entry_cam ON pe.entryCameraId = entry_cam.name
+            LEFT JOIN cameras exit_cam ON pe.exitCameraId = exit_cam.name
+            WHERE ${where}
+            ORDER BY pe.entryTime DESC LIMIT 500`;
+        console.log('[EVENTS LIST API] Executing query with params:', params);
+        const events = await conn.query(query, params);
+        console.log(`[EVENTS LIST API] Found ${events.length} events`);
+        res.json(events);
+    } catch (err) {
+        console.error('[EVENTS LIST API] Error loading filtered events:', err);
+        res.status(500).json({ error: 'Error loading filtered events' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+app.get('/events-test', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const events = await conn.query(`
+            SELECT 
+                pe.id,
+                pe.siteId,
+                pe.VRM,
+                pe.entryTime,
+                pe.exitTime,
+                pe.status
+            FROM parking_events pe
+            ORDER BY pe.entryTime DESC LIMIT 100
+        `);
+        res.render('events_test', { events });
+    } catch (err) {
+        console.error('Error loading events-test:', err);
+        res.status(500).send('Error loading events-test');
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Regenerate events for a specific VRM at a car park and date range
+app.post('/admin/regenerate-events-for-vrm', async (req, res) => {
+    let conn;
+    try {
+        const { siteId, vrm, startDate, endDate } = req.body;
+        if (!siteId || !vrm || !startDate || !endDate) {
+            return res.status(400).json({ error: 'Missing required parameters' });
+        }
+        conn = await pool.getConnection();
+        // Delete existing events for this VRM, car park, and date range
+        await conn.query(
+            'DELETE FROM parking_events WHERE siteId = ? AND VRM = ? AND entryTime >= ? AND entryTime <= ?',
+            [siteId, vrm, startDate, endDate]
+        );
+        // Generate new events for this VRM and car park in the date range
+        // (Assume generateParkingEvents supports filtering by siteId, VRM, and date range)
+        const events = await generateParkingEvents(startDate, endDate, false, null, siteId, vrm);
+        res.json({ success: true, regenerated: events.length });
+    } catch (err) {
+        console.error('Error regenerating events for VRM:', err);
+        res.status(500).json({ error: 'Error regenerating events for VRM' });
+    } finally {
+        if (conn) conn.release();
+    }
 });

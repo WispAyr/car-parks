@@ -128,7 +128,7 @@
                                                 🚨
                                             </button>
                                             <button class="btn btn-sm btn-outline-secondary btn-icon" 
-                                                    onclick="window.location.href='/admin/carparks/<%= cp.siteId %>/edit'">
+                                                    onclick="editCarPark('<%= cp.siteId %>', '<%= cp.name %>', '<%= cp.throughTrafficMinutes %>', '<%= cp.minEventDurationMinutes || 5 %>')">
                                                 ✏️
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger btn-icon" 
@@ -244,11 +244,12 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/adminActions.js"></script>
     <script>
-        function editCarPark(siteId, name, throughTrafficMinutes) {
+        function editCarPark(siteId, name, throughTrafficMinutes, minEventDurationMinutes) {
             document.getElementById('editOriginalSiteId').value = siteId;
             document.getElementById('editSiteId').value = siteId;
             document.getElementById('editName').value = name;
-            document.getElementById('editThroughTrafficMinutes').value = throughTrafficMinutes;
+            document.getElementById('editThroughTrafficMinutes').value = (throughTrafficMinutes !== undefined && throughTrafficMinutes !== null && throughTrafficMinutes !== '') ? throughTrafficMinutes : 5;
+            document.getElementById('minEventDurationMinutes').value = (minEventDurationMinutes !== undefined && minEventDurationMinutes !== null && minEventDurationMinutes !== '') ? minEventDurationMinutes : 5;
             new bootstrap.Modal(document.getElementById('editCarParkModal')).show();
         }
 
@@ -256,6 +257,30 @@
             document.getElementById('deleteSiteId').value = siteId;
             new bootstrap.Modal(document.getElementById('deleteCarParkModal')).show();
         }
+
+        // Auto-scroll and highlight if ?edit=siteId is present
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('edit');
+            if (editId) {
+                const row = document.querySelector(`tr[data-siteid='${editId}']`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.classList.add('table-warning');
+                    setTimeout(() => row.classList.remove('table-warning'), 3000);
+                    // Trigger edit modal if edit button is present
+                    const editBtn = row.querySelector('.btn-outline-secondary, .btn-primary');
+                    if (editBtn) editBtn.click();
+                }
+            }
+            // Reload page after successful edit to update table
+            const editForm = document.querySelector('#editCarParkModal form');
+            if (editForm) {
+                editForm.addEventListener('submit', function() {
+                    setTimeout(() => window.location.reload(), 500);
+                });
+            }
+        });
 
         handleAdminAction({
             btnId: 'addCarparkBtn',

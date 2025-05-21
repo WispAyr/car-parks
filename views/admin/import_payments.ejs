@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Payments</title>
+    <style>
+        .import-form { margin: 30px 0; }
+        .preview-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        .preview-table th, .preview-table td { border: 1px solid #ccc; padding: 6px; }
+        .preview-table th { background: #eee; }
+        .alert { padding: 10px; margin: 10px 0; border: 1px solid #ccc; background: #f8f8f8; }
+        .debug { color: #666; font-size: 12px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Import Payments</h1>
+    <form class="import-form" method="POST" enctype="multipart/form-data" action="/admin/import-payments">
+        <label for="siteId">Car Park:</label>
+        <select name="siteId" id="siteId" required>
+            <% carparks.forEach(function(cp) { %>
+                <option value="<%= cp.siteId %>" <%= siteId === cp.siteId ? 'selected' : '' %>><%= cp.name %> (<%= cp.siteId %>)</option>
+            <% }); %>
+        </select>
+        <label for="source">Source:</label>
+        <select name="source" id="source">
+            <option value="matrix" <%= source === 'matrix' ? 'selected' : '' %>>Matrix (Parking Machines)</option>
+        </select>
+        <label for="file">File (.xlsx or .csv):</label>
+        <input type="file" name="file" id="file" accept=".xlsx,.csv" required>
+        <button type="submit">Upload & Preview</button>
+    </form>
+    <% if (preview && preview.length) { %>
+        <h2>Preview (first 10 rows)</h2>
+        <div class="debug">
+            Debug info: fileToken = <%= fileToken %>
+        </div>
+        <form method="POST" action="/admin/import-payments/confirm" id="confirmForm">
+            <input type="hidden" name="siteId" value="<%= siteId %>">
+            <input type="hidden" name="source" value="<%= source %>">
+            <input type="hidden" name="fileToken" value="<%= fileToken %>">
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <% Object.keys(preview[0]).forEach(function(col) { %>
+                            <th><%= col %></th>
+                        <% }); %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% preview.forEach(function(row) { %>
+                        <tr>
+                            <% Object.values(row).forEach(function(val) { %>
+                                <td><%= val %></td>
+                            <% }); %>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+            <button type="submit">Confirm Import</button>
+        </form>
+        <script>
+            document.getElementById('confirmForm').addEventListener('submit', function(e) {
+                console.log('Form submitted with fileToken:', document.querySelector('input[name="fileToken"]').value);
+            });
+        </script>
+    <% } %>
+    <% if (message) { %>
+        <div class="alert"><%= message %></div>
+    <% } %>
+</body>
+</html> 

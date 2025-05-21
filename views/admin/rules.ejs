@@ -1,4 +1,29 @@
 <div class="content">
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Car Park Settings for <%= carpark.name %></span>
+        </div>
+        <div class="card-body">
+            <form action="/admin/rules/<%= carpark.siteId %>/update-type" method="POST" class="row g-3 align-items-center mb-3">
+                <input type="hidden" name="siteId" value="<%= carpark.siteId %>">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Car Park Type</label>
+                    <select class="form-select" name="carParkType" id="carParkType" required onchange="updateRuleTypeHelp()">
+                        <option value="public" <%= carpark.carParkType === 'public' ? 'selected' : '' %>>Public (open to public, may have free/paid/registration rules)</option>
+                        <option value="private" <%= carpark.carParkType === 'private' ? 'selected' : '' %>>Private (whitelist only, PCN if not whitelisted)</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <div id="carParkTypeHelp" class="form-text text-muted">
+                        <%= carpark.carParkType === 'private' ? 'Private: Only whitelisted vehicles may park. PCN issued if not on whitelist (after optional grace period).' : 'Public: Public may park. Can set free period, payment/registration, overstay, and grace period rules.' %>
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <button type="submit" class="btn btn-primary">Save Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>Parking Rules for <%= carpark.name %></span>
@@ -7,6 +32,42 @@
             </button>
         </div>
         <div class="card-body">
+            <form action="/admin/rules/<%= carpark.siteId %>/add" method="POST" class="mb-4">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">Name</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Type</label>
+                        <select name="ruleType" class="form-select" required>
+                            <option value="">Select</option>
+                            <option value="whitelist">Whitelist</option>
+                            <option value="duration">Duration</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Duration (min)</label>
+                        <input type="number" name="maxDurationMinutes" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Daily (min)</label>
+                        <input type="number" name="maxDailyDurationMinutes" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Weekly (min)</label>
+                        <input type="number" name="maxWeeklyDurationMinutes" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Monthly (min)</label>
+                        <input type="number" name="maxMonthlyDurationMinutes" class="form-control">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">Add Rule</button>
+                    </div>
+                </div>
+            </form>
             <div class="table-responsive">
                 <table class="table">
                     <thead>

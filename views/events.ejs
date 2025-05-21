@@ -1,465 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parking Events Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Events</title>
     <style>
-        :root {
-            --bg-main: #f7f8fa;
-            --bg-gradient: linear-gradient(120deg, #f7f8fa 60%, #e6eaff 100%);
-            --header-bg: #f4f6fb;
-            --table-bg: #f3f6ff;
-            --table-header-bg: linear-gradient(90deg, #c7d2fe 0%, #e0e7ff 100%);
-            --table-row-alt: #eaf0fb;
-            --table-row-hover: #e0e7ff66;
-            --chip-bg: #e0e7ff;
-            --chip-color: #3730a3;
-            --chip-icon: #6366f1;
-            --badge-success: #22c55e;
-            --badge-primary: #6366f1;
-            --badge-danger: #ef4444;
-            --badge-secondary: #64748b;
-            --text-main: #23272f;
-            --text-muted: #7b809a;
-            --border-main: #c7d2fe;
-            --shadow-main: 0 8px 32px rgba(99,102,241,0.16);
-            --modal-bg: #fff;
-        }
-        body.dark-mode {
-            --bg-main: #181a20;
-            --bg-gradient: linear-gradient(120deg, #23272f 60%, #373a47 100%);
-            --header-bg: #23272f;
-            --table-bg: #23272f;
-            --table-header-bg: #323544;
-            --table-row-alt: #23272f;
-            --table-row-hover: #323544;
-            --chip-bg: #323544;
-            --chip-color: #a5b4fc;
-            --chip-icon: #a5b4fc;
-            --badge-success: #22c55e;
-            --badge-primary: #818cf8;
-            --badge-danger: #ef4444;
-            --badge-secondary: #64748b;
-            --text-main: #e5e7eb;
-            --text-muted: #a1a1aa;
-            --border-main: #323544;
-            --shadow-main: 0 6px 32px rgba(30,41,59,0.18);
-            --modal-bg: #23272f;
-        }
-        body {
-            font-family: 'Inter', Arial, sans-serif;
-            margin: 0;
-            background: var(--bg-gradient);
-            color: var(--text-main);
-        }
-        .header {
-            background: var(--header-bg);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            padding: 32px 0 16px 0;
-            margin-bottom: 0;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .header h1 {
-            flex: 1;
-            color: var(--text-main);
-            text-align: center;
-            font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            margin: 0;
-        }
-        .dark-toggle {
-            position: absolute;
-            right: 32px;
-            top: 36px;
-            background: var(--table-header-bg);
-            border: 1.5px solid var(--border-main);
-            border-radius: 2em;
-            padding: 6px 18px;
-            color: var(--text-main);
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-        }
-        .dark-toggle:hover {
-            background: var(--badge-primary);
-            color: #fff;
-        }
-        .nav {
-            text-align: center;
-            margin: 18px 0 24px 0;
-        }
-        .nav a {
-            display: inline-block;
-            margin: 0 10px;
-            padding: 8px 18px;
-            border-radius: 6px;
-            background: var(--table-header-bg);
-            color: var(--text-main);
-            text-decoration: none;
-            font-weight: 500;
-            transition: background 0.2s, color 0.2s;
-        }
-        .nav a.active, .nav a:hover {
-            background: var(--badge-primary);
-            color: #fff;
-        }
-        .filter-bar {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
-            background: var(--table-bg);
-            border: 2px solid var(--border-main);
-            border-radius: 18px;
-            box-shadow: 0 4px 16px rgba(99,102,241,0.10);
-            padding: 18px 18px 10px 18px;
-            margin: 0 auto 24px auto;
-            max-width: 1200px;
-        }
-        .filter-bar label {
-            margin-right: 6px;
-            font-weight: 500;
-        }
-        .filter-bar select, .filter-bar button {
-            min-width: 120px;
-            border-radius: 6px;
-            border: 1px solid var(--border-main);
-            padding: 6px 12px;
-            font-size: 1em;
-            background: var(--table-bg);
-            color: var(--text-main);
-        }
-        .timezone-btn {
-            margin-left: 8px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--badge-primary);
-            background: var(--table-bg);
-            color: var(--badge-primary);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .timezone-btn:hover {
-            background: var(--badge-primary);
-            color: #fff;
-        }
-        .events-table {
-            width: 98vw;
-            max-width: 1280px;
-            margin: 0 auto 32px auto;
-            border-collapse: separate;
-            border-spacing: 0;
-            background: var(--table-bg);
-            border-radius: 24px;
-            box-shadow: var(--shadow-main);
-            overflow: hidden;
-            border: 2px solid var(--border-main);
-            margin-top: 18px;
-        }
-        .events-table th, .events-table td {
-            padding: 22px 16px;
-            text-align: left;
-        }
-        .events-table th {
-            background: var(--table-header-bg);
-            color: var(--text-main);
-            font-weight: 700;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            border-bottom: 2px solid var(--border-main);
-            letter-spacing: 0.02em;
-        }
-        .events-table tr {
-            transition: background 0.18s;
-        }
-        .events-table tr:nth-child(even) {
-            background: var(--table-row-alt);
-        }
-        .events-table tr:hover {
-            background: var(--table-row-hover);
-        }
-        .flag {
-            color: #fff;
-            background: #f59e42;
-            border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 0.95em;
-            font-weight: 600;
-        }
-        .badge {
-            border-radius: 2em !important;
-            font-size: 1em;
-            padding: 0.45em 1.2em;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5em;
-        }
-        .bg-success { background: var(--badge-success) !important; color: #fff !important; }
-        .bg-primary { background: var(--badge-primary) !important; color: #fff !important; }
-        .bg-danger { background: var(--badge-danger) !important; color: #fff !important; }
-        .bg-secondary { background: var(--badge-secondary) !important; color: #fff !important; }
-        .camera-chip {
-            display: inline-flex;
-            align-items: center;
-            background: var(--chip-bg);
-            color: var(--chip-color);
-            border-radius: 1.2em;
-            padding: 0.25em 0.9em 0.25em 0.7em;
-            font-size: 1em;
-            font-weight: 600;
-            gap: 0.5em;
-            box-shadow: 0 1px 4px rgba(99,102,241,0.07);
-            margin-right: 0.2em;
-        }
-        .camera-chip i {
-            color: var(--chip-icon);
-        }
-        .image-cell {
-            background: var(--table-row-alt);
-            text-align: center;
-            vertical-align: middle;
-        }
-        .thumbnail {
-            width: 56px;
-            height: 56px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1.5px solid var(--border-main);
-            box-shadow: 0 2px 8px rgba(99,102,241,0.08);
-            transition: transform 0.18s, box-shadow 0.18s;
-            background: var(--table-bg);
-        }
-        .thumbnail:hover {
-            transform: scale(1.12);
-            box-shadow: 0 4px 16px rgba(99,102,241,0.18);
-            z-index: 2;
-        }
-        .btn-outline-primary {
-            border-radius: 2em;
-            font-weight: 600;
-            padding: 0.4em 1.2em;
-            font-size: 1em;
-            border-width: 2px;
-        }
-        @media (max-width: 1100px) {
-            .events-table, .events-table th, .events-table td { font-size: 13px; }
-            .filter-bar { max-width: 98vw; }
-        }
-        @media (max-width: 700px) {
-            .events-table, .events-table th, .events-table td { font-size: 11px; padding: 8px 4px; }
-            .filter-bar { flex-direction: column; gap: 10px; padding: 12px 6px; }
-        }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #eee; }
+        img.thumb { width: 60px; height: auto; border-radius: 4px; }
+        .filter-bar { margin-bottom: 20px; }
+        .filter-bar form { display: flex; gap: 12px; align-items: center; }
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/events" class="<%= tab === 'completed' ? 'active' : '' %>">Completed Events</a>
-        <a href="/currently-parked" class="<%= tab === 'parked' ? 'active' : '' %>">Currently Parked</a>
-        <a href="/all-events" class="<%= tab === 'all' ? 'active' : '' %>">All Events</a>
-        <form action="/admin/generate-events" method="GET" style="display: inline;">
-            <button type="submit" class="btn btn-primary" style="margin-left: 10px;">Generate Events</button>
-        </form>
-    </div>
-    <% if (typeof message !== 'undefined' && message) { %>
-        <div class="alert alert-success" style="max-width: 800px; margin: 20px auto;">
-            <%= message %>
-        </div>
-    <% } %>
+    <h1>Events</h1>
     <div class="filter-bar">
-        <form method="GET" class="d-flex gap-2 align-items-center">
-            <select id="siteSelect" name="siteId" class="form-select" onchange="this.form.submit()">
+        <form method="GET">
+            <label for="siteId">Car Park:</label>
+            <select name="siteId" id="siteId">
                 <option value="">All Car Parks</option>
                 <% carparks.forEach(function(cp) { %>
-                    <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>>
-                        <%= cp.name %>
-                    </option>
+                    <option value="<%= cp.siteId %>" <%= selectedCarPark === cp.siteId ? 'selected' : '' %>><%= cp.name %></option>
                 <% }); %>
             </select>
-            
-            <select id="eventType" name="eventType" class="form-select" onchange="this.form.submit()">
-                <option value="all">All Events</option>
-                <option value="completed" <%= tab === 'completed' ? 'selected' : '' %>>Completed Only</option>
-                <option value="parked" <%= tab === 'parked' ? 'selected' : '' %>>Currently Parked</option>
-                <option value="through">Through Traffic</option>
-            </select>
-
-            <% const currentStatus = typeof selectedStatus !== 'undefined' ? selectedStatus : ''; %>
-            <select name="status" class="form-select" onchange="this.form.submit()">
-                <option value="">All Statuses</option>
-                <option value="whitelisted" <%= currentStatus === 'whitelisted' ? 'selected' : '' %>>Whitelisted</option>
-                <option value="paid" <%= currentStatus === 'paid' ? 'selected' : '' %>>Paid</option>
-                <option value="unpaid" <%= currentStatus === 'unpaid' ? 'selected' : '' %>>Unpaid</option>
-            </select>
+            <label for="startDate">From:</label>
+            <input type="date" name="startDate" id="startDate" value="<%= typeof startDate !== 'undefined' ? startDate : '' %>">
+            <label for="endDate">To:</label>
+            <input type="date" name="endDate" id="endDate" value="<%= typeof endDate !== 'undefined' ? endDate : '' %>">
+            <button type="submit">Filter</button>
         </form>
     </div>
-    <div class="table-responsive">
-        <table class="events-table">
-            <thead>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Site ID</th>
+                <th>VRM</th>
+                <th>Entry Time</th>
+                <th>Exit Time</th>
+                <th>Status</th>
+                <th>Entry Image</th>
+                <th>Exit Image</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% events.forEach(event => { %>
                 <tr>
-                    <th>Car Park</th>
-                    <th>VRM</th>
-                    <th>Entry Time</th>
-                    <th>Exit Time</th>
-                    <th>Duration</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                    <th>Entry Camera</th>
-                    <th>Exit Camera</th>
-                    <th>Entry Image</th>
-                    <th>Exit Image</th>
-                    <th>Actions</th>
+                    <td><a href="/events/<%= event.id %>"><%= event.id %></a></td>
+                    <td><%= event.siteId %></td>
+                    <td><%= event.VRM %></td>
+                    <td><%= event.entryTime %></td>
+                    <td><%= event.exitTime %></td>
+                    <td><%= event.status %></td>
+                    <td>
+                        <% if (event.hasEntryImage && event.entryDetectionId) { %>
+                            <img class="thumb" src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image" />
+                        <% } else { %>
+                            <img class="thumb" src="/images/placeholder.jpg" alt="No Entry Image" />
+                        <% } %>
+                    </td>
+                    <td>
+                        <% if (event.hasExitImage && event.exitDetectionId) { %>
+                            <img class="thumb" src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image" />
+                        <% } else { %>
+                            <img class="thumb" src="/images/placeholder.jpg" alt="No Exit Image" />
+                        <% } %>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                <% events.forEach(event => { %>
-                    <tr class="event-row" 
-                        data-event-type="<%= !event.exitTime ? 'parked' : (event.throughTraffic ? 'through' : 'completed') %>">
-                        <td><%= event.carParkName %></td>
-                        <td><%= event.VRM %></td>
-                        <td class="timestamp" data-timestamp="<%= event.entryTime %>">
-                            <%= new Date(event.entryTime).toLocaleString() %>
-                        </td>
-                        <td class="timestamp" data-timestamp="<%= event.exitTime %>">
-                            <%= event.exitTime ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %>
-                        </td>
-                        <td>
-                            <%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %>
-                        </td>
-                        <td>
-                            <% if (event.status === 'whitelisted') { %>
-                                <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
-                            <% } else if (event.status === 'paid') { %>
-                                <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
-                            <% } else if (event.status === 'unpaid') { %>
-                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
-                            <% } else { %>
-                                <span class="badge bg-secondary">-</span>
-                            <% } %>
-                        </td>
-                        <td>
-                            <% if (!event.exitTime) { %>
-                                <span class="badge bg-warning">Currently Parked</span>
-                            <% } else if (event.throughTraffic) { %>
-                                <span class="badge bg-info">Through Traffic</span>
-                            <% } else { %>
-                                <span class="badge bg-success">Completed</span>
-                            <% } %>
-                        </td>
-                        <td>
-                            <% if (event.entryCameraName) { %>
-                                <span class="camera-chip" title="<%= event.entryCameraName %>"><i class="fa fa-video"></i> <%= event.entryCameraName %></span>
-                            <% } else { %>
-                                <span class="text-muted">-</span>
-                            <% } %>
-                        </td>
-                        <td>
-                            <% if (event.exitCameraName) { %>
-                                <span class="camera-chip" title="<%= event.exitCameraName %>"><i class="fa fa-video"></i> <%= event.exitCameraName %></span>
-                            <% } else { %>
-                                <span class="text-muted">-</span>
-                            <% } %>
-                        </td>
-                        <td class="image-cell">
-                            <% if (event.entryDetectionId && event.hasEntryImage1) { %>
-                                <img src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image" class="thumbnail" onerror="this.src='/images/placeholder.jpg'" onclick="showImageModal('/image/<%= event.entryDetectionId %>/1')">
-                            <% } else { %>
-                                <span class="text-muted">-</span>
-                            <% } %>
-                        </td>
-                        <td class="image-cell">
-                            <% if (event.exitDetectionId && event.hasExitImage1) { %>
-                                <img src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image" class="thumbnail" onerror="this.src='/images/placeholder.jpg'" onclick="showImageModal('/image/<%= event.exitDetectionId %>/1')">
-                            <% } else { %>
-                                <span class="text-muted">-</span>
-                            <% } %>
-                        </td>
-                        <td>
-                            <a href="/events/<%= event.id %>" class="btn btn-sm btn-outline-primary"><i class="fa fa-info-circle"></i> Details</a>
-                        </td>
-                    </tr>
-                <% }) %>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Image Preview Modal -->
-    <div class="modal fade" id="imagePreviewModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Image Preview</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <img id="previewImage" class="img-fluid" alt="Detection Image">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <% let basePath = '/events'; if (tab === 'all') { basePath = '/all-events'; } else if (tab === 'parked') { basePath = '/currently-parked'; } %>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Timezone toggle
-            let isGMT = false;
-            window.toggleTimezone = function() {
-                isGMT = !isGMT;
-                const button = document.getElementById('timezoneToggle');
-                button.textContent = isGMT ? 'Switch to Local Time' : 'Switch to GMT';
-                
-                document.querySelectorAll('.timestamp').forEach(cell => {
-                    const timestamp = cell.dataset.timestamp;
-                    if (timestamp) {
-                        const date = new Date(timestamp);
-                        cell.textContent = isGMT ? 
-                            date.toUTCString() : 
-                            date.toLocaleString();
-                    }
-                });
-            };
-
-            // Dark mode toggle
-            function setDarkMode(enabled) {
-                if (enabled) {
-                    document.body.classList.add('dark-mode');
-                    document.getElementById('darkModeLabel').textContent = 'Light Mode';
-                    document.getElementById('darkModeToggle').innerHTML = '<i class="fa fa-sun"></i> Light Mode';
-                } else {
-                    document.body.classList.remove('dark-mode');
-                    document.getElementById('darkModeLabel').textContent = 'Dark Mode';
-                    document.getElementById('darkModeToggle').innerHTML = '<i class="fa fa-moon"></i> Dark Mode';
-                }
-            }
-            function toggleDarkMode() {
-                const enabled = !document.body.classList.contains('dark-mode');
-                setDarkMode(enabled);
-                localStorage.setItem('darkMode', enabled ? '1' : '0');
-            }
-            // On load, set dark mode from localStorage
-            setDarkMode(localStorage.getItem('darkMode') === '1');
-        });
-
-        function showImageModal(imageUrl) {
-            const img = document.getElementById('previewImage');
-            img.src = imageUrl;
-            const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
-            modal.show();
-        }
-    </script>
+            <% }) %>
+        </tbody>
+    </table>
+    <p>Total events: <%= events.length %></p>
 </body>
 </html> 

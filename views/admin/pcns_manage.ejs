@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCN Management - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container-fluid mt-4" style="max-width: 1400px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-primary mb-0"><i class="bi bi-ticket-detailed"></i> PCN Management</h2>
+        <a href="/admin" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Admin Dashboard</a>
+    </div>
+    <div class="mb-3">
+        <div class="btn-group" role="group" aria-label="Status Filter">
+            <button type="button" class="btn btn-outline-primary active" data-status="all">All</button>
+            <button type="button" class="btn btn-outline-warning" data-status="possible">Possible</button>
+            <button type="button" class="btn btn-outline-success" data-status="active">Active</button>
+            <button type="button" class="btn btn-outline-info" data-status="paid">Paid</button>
+            <button type="button" class="btn btn-outline-danger" data-status="cancelled">Cancelled</button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="pcnsTable">
+            <thead class="table-light">
+                <tr>
+                    <th>PCN ID</th>
+                    <th>VRM</th>
+                    <th>Car Park</th>
+                    <th>Event</th>
+                    <th>Issue Date</th>
+                    <th>Status</th>
+                    <th>Reason</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% pcns.forEach(function(p) { %>
+                    <tr data-status="<%= p.status %>">
+                        <td><%= p.id %></td>
+                        <td><%= p.VRM %></td>
+                        <td><%= p.carparkName || p.siteId %></td>
+                        <td>
+                            <% if (p.eventId) { %>
+                                <a href="/events/<%= p.eventId %>" class="btn btn-sm btn-outline-primary">View Event</a>
+                            <% } else { %>
+                                -
+                            <% } %>
+                        </td>
+                        <td><%= p.issueTime ? new Date(p.issueTime).toLocaleString() : '-' %></td>
+                        <td>
+                            <span class="badge bg-<%= 
+                                p.status === 'possible' ? 'warning' : 
+                                p.status === 'active' ? 'success' : 
+                                p.status === 'paid' ? 'info' : 
+                                p.status === 'cancelled' ? 'danger' : 'secondary' %>">
+                                <%= p.status.charAt(0).toUpperCase() + p.status.slice(1) %>
+                            </span>
+                        </td>
+                        <td><%= p.reason || '-' %></td>
+                        <td>£<%= p.amount ? Number(p.amount).toFixed(2) : '-' %></td>
+                        <td>
+                            <% if (p.status === 'possible') { %>
+                                <button class="btn btn-sm btn-success confirm-btn" data-id="<%= p.id %>"><i class="bi bi-check-circle"></i> Confirm</button>
+                                <button class="btn btn-sm btn-danger cancel-btn" data-id="<%= p.id %>"><i class="bi bi-x-circle"></i> Dismiss</button>
+                            <% } else if (p.status === 'active') { %>
+                                <button class="btn btn-sm btn-info paid-btn" data-id="<%= p.id %>"><i class="bi bi-currency-pound"></i> Mark Paid</button>
+                                <button class="btn btn-sm btn-danger cancel-btn" data-id="<%= p.id %>"><i class="bi bi-x-circle"></i> Cancel</button>
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(document).ready(function() {
+    var table = $('#pcnsTable').DataTable({
+        order: [[4, 'desc']],
+        pageLength: 25,
+        language: { search: "Search PCNs:" }
+    });
+
+    // Get status from URL if present
+    var urlParams = new URLSearchParams(window.location.search);
+    var statusFilter = urlParams.get('status') || 'all';
+    
+    // Set active filter button
+    $('.btn-group [data-status]').removeClass('active');
+    $('.btn-group [data-status="' + statusFilter + '"]').addClass('active');
+    
+    // Apply initial filter
+    if (statusFilter !== 'all') {
+        table.rows().every(function() {
+            var row = $(this.node());
+            row.toggle(row.data('status') === statusFilter);
+        });
+    }
+
+    // Status filter
+    $('.btn-group [data-status]').on('click', function() {
+        $('.btn-group [data-status]').removeClass('active');
+        $(this).addClass('active');
+        var status = $(this).data('status');
+        if (status === 'all') {
+            table.rows().show();
+        } else {
+            table.rows().every(function() {
+                var row = $(this.node());
+                row.toggle(row.data('status') === status);
+            });
+        }
+    });
+
+    function showToast(msg, type) {
+        var toast = $('<div class="toast align-items-center text-bg-' + (type || 'success') + ' border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="z-index:9999; min-width:250px;">'
+            + '<div class="d-flex"><div class="toast-body">' + msg + '</div>'
+            + '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>');
+        $('body').append(toast);
+        var bsToast = new bootstrap.Toast(toast[0]);
+        bsToast.show();
+        toast.on('hidden.bs.toast', function() { toast.remove(); });
+    }
+
+    // Confirm PCN
+    $('#pcnsTable').on('click', '.confirm-btn', function() {
+        var btn = $(this);
+        var id = btn.data('id');
+        btn.prop('disabled', true);
+        $.post('/admin/api/pcns/' + id + '/confirm', function(resp) {
+            if (resp.success) {
+                var row = btn.closest('tr');
+                row.attr('data-status', 'active');
+                row.find('span.badge').removeClass().addClass('badge bg-success').text('Active');
+                row.find('.confirm-btn,.cancel-btn').remove();
+                row.find('td:last').html('<button class="btn btn-sm btn-info paid-btn" data-id="' + id + '"><i class="bi bi-currency-pound"></i> Mark Paid</button> <button class="btn btn-sm btn-danger cancel-btn" data-id="' + id + '"><i class="bi bi-x-circle"></i> Cancel</button>');
+                showToast('PCN confirmed and set to Active.');
+            } else {
+                showToast('Error confirming PCN', 'danger');
+            }
+        }).fail(function(xhr) {
+            showToast('Error confirming PCN', 'danger');
+        }).always(function() { btn.prop('disabled', false); });
+    });
+    // Cancel/Dismiss PCN
+    $('#pcnsTable').on('click', '.cancel-btn', function() {
+        var btn = $(this);
+        var id = btn.data('id');
+        btn.prop('disabled', true);
+        $.post('/admin/api/pcns/' + id + '/cancel', function(resp) {
+            if (resp.success) {
+                var row = btn.closest('tr');
+                row.attr('data-status', 'cancelled');
+                row.find('span.badge').removeClass().addClass('badge bg-danger').text('Cancelled');
+                row.find('td:last').html('<span class="text-muted">-</span>');
+                showToast('PCN cancelled.');
+            } else {
+                showToast('Error cancelling PCN', 'danger');
+            }
+        }).fail(function(xhr) {
+            showToast('Error cancelling PCN', 'danger');
+        }).always(function() { btn.prop('disabled', false); });
+    });
+    // Mark as Paid
+    $('#pcnsTable').on('click', '.paid-btn', function() {
+        var btn = $(this);
+        var id = btn.data('id');
+        btn.prop('disabled', true);
+        $.post('/admin/api/pcns/' + id + '/paid', function(resp) {
+            if (resp.success) {
+                var row = btn.closest('tr');
+                row.attr('data-status', 'paid');
+                row.find('span.badge').removeClass().addClass('badge bg-info').text('Paid');
+                row.find('td:last').html('<span class="text-muted">-</span>');
+                showToast('PCN marked as Paid.');
+            } else {
+                showToast('Error marking PCN as paid', 'danger');
+            }
+        }).fail(function(xhr) {
+            showToast('Error marking PCN as paid', 'danger');
+        }).always(function() { btn.prop('disabled', false); });
+    });
+});
+</script>
+</body>
+</html> 
