@@ -53,11 +53,11 @@ router.get('/cameras', async (req, res) => {
 router.post('/api/cameras', async (req, res) => {
     let conn;
     try {
-        const { name, carParkId, isEntryTrigger, isExitTrigger, direction } = req.body;
+        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, admin_url } = req.body;
         conn = await pool.getConnection();
         const result = await conn.query(
-            'INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction) VALUES (?, ?, ?, ?, ?)',
-            [name, carParkId, isEntryTrigger, isExitTrigger, direction]
+            'INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, admin_url) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, carParkId, isEntryTrigger, isExitTrigger, direction, admin_url]
         );
         res.json({ id: result.insertId });
     } catch (error) {
@@ -73,11 +73,11 @@ router.put('/api/cameras/:id', async (req, res) => {
     let conn;
     try {
         const { id } = req.params;
-        const { name, carParkId, isEntryTrigger, isExitTrigger, direction } = req.body;
+        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, admin_url } = req.body;
         conn = await pool.getConnection();
         await conn.query(
-            'UPDATE cameras SET name = ?, carParkId = ?, isEntryTrigger = ?, isExitTrigger = ?, direction = ? WHERE id = ?',
-            [name, carParkId, isEntryTrigger, isExitTrigger, direction, id]
+            'UPDATE cameras SET name = ?, carParkId = ?, isEntryTrigger = ?, isExitTrigger = ?, direction = ?, admin_url = ? WHERE id = ?',
+            [name, carParkId, isEntryTrigger, isExitTrigger, direction, admin_url, id]
         );
         res.json({ success: true });
     } catch (error) {
@@ -94,7 +94,7 @@ router.delete('/api/cameras/:id', async (req, res) => {
     try {
         const { id } = req.params;
         conn = await pool.getConnection();
-        await conn.query('DELETE FROM cameras WHERE id = ?', [id]);
+        await conn.query('DELETE FROM cameras WHERE name = ?', [id]);
         res.json({ success: true });
     } catch (error) {
         logger.error('Error deleting camera:', error);
@@ -128,17 +128,23 @@ router.get('/carparks/:id', async (req, res) => {
             ORDER BY entryTime DESC
         `, [siteId]);
         
-        // Today's stats
+        // Today's stats (detailed breakdown)
         const [todayStats] = await conn.query(`
             SELECT 
-                COUNT(*) as totalVehicles,
-                SUM(throughTraffic) as throughTraffic,
-                AVG(durationMinutes) as avgDuration
+                COUNT(*) as totalEvents,
+                SUM(CASE WHEN exitTime IS NULL AND throughTraffic = 0 THEN 1 ELSE 0 END) as currentlyParked,
+                SUM(CASE WHEN throughTraffic = 1 THEN 1 ELSE 0 END) as throughTraffic,
+                SUM(CASE WHEN exitTime IS NOT NULL AND throughTraffic = 0 THEN 1 ELSE 0 END) as completedEvents,
+                SUM(CASE WHEN status = 'whitelisted' THEN 1 ELSE 0 END) as whitelisted,
+                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid,
+                SUM(CASE WHEN status = 'overstay' THEN 1 ELSE 0 END) as overstay,
+                SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
             FROM parking_events
-            WHERE siteId = ? AND DATE(entryTime) = CURDATE() AND exitTime IS NOT NULL
+            WHERE siteId = ?
+              AND entryTime >= CURDATE()
+              AND entryTime < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
         `, [siteId]);
-        todayStats.throughTraffic = todayStats.throughTraffic || 0;
-        todayStats.avgDuration = todayStats.avgDuration || 0;
         
         // Hourly distribution for today
         const hourlyRows = await conn.query(`
@@ -175,9 +181,7 @@ router.get('/carparks/:id', async (req, res) => {
                 exitTime,
                 durationMinutes,
                 throughTraffic,
-                status,
-                whitelistMatch,
-                paymentMatch
+                status
             FROM parking_events
             WHERE siteId = ?
             ORDER BY entryTime DESC
@@ -432,11 +436,11 @@ router.get('/carparks', async (req, res) => {
 router.post('/admin/carparks/edit', async (req, res) => {
     let conn;
     try {
-        const { originalSiteId, siteId, name, throughTrafficMinutes, minEventDurationMinutes } = req.body;
+        const { originalSiteId, siteId, name, throughTrafficMinutes, minEventDurationMinutes, carParkType } = req.body;
         conn = await pool.getConnection();
         await conn.query(
-            'UPDATE carparks SET siteId = ?, name = ?, throughTrafficMinutes = ?, minEventDurationMinutes = ? WHERE siteId = ?',
-            [siteId, name, throughTrafficMinutes, minEventDurationMinutes, originalSiteId]
+            'UPDATE carparks SET siteId = ?, name = ?, throughTrafficMinutes = ?, minEventDurationMinutes = ?, carParkType = ? WHERE siteId = ?',
+            [siteId, name, throughTrafficMinutes, minEventDurationMinutes, carParkType, originalSiteId]
         );
         res.redirect('/admin/carparks');
     } catch (err) {
@@ -459,6 +463,13 @@ router.post('/carparks/:siteId/pcns/issue', async (req, res) => {
     try {
         const { siteId } = req.params;
         const { eventId, vrm, amount, dueDate, reason } = req.body;
+
+        // Validate VRM
+        if (!isValidVRM(vrm)) {
+            logger.error(`[PCN Manual Issue] Invalid VRM format: ${vrm}`);
+            return res.status(400).json({ error: 'Invalid VRM format' });
+        }
+
         conn = await pool.getConnection();
         const now = new Date();
         
@@ -471,10 +482,11 @@ router.post('/carparks/:siteId/pcns/issue', async (req, res) => {
         });
         
         // Insert PCN
+        const defaultReason = reason || (vrm ? 'Without a valid permit or authority' : 'Without valid pay & display ticket');
         const [result] = await conn.query(
-            `INSERT INTO pcns (siteId, VRM, eventId, issueTime, dueDate, amount, reason, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'issued')`,
-            [siteId, vrm, eventId, now, dueDate, amount, reason]
+            `INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, dueDate, amount, reason, status, notes) 
+             VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), 150.00, ?, 'possible', ?)`,
+            [siteId, eventId, null, vrm, defaultReason, reason]
         );
         const pcnId = result.insertId;
         
@@ -497,12 +509,7 @@ router.post('/carparks/:siteId/pcns/issue', async (req, res) => {
         
         res.redirect(`/admin/carparks/${siteId}/pcns`);
     } catch (err) {
-        logger.error(`[PCN Manual Issue] Error issuing PCN: ${err.message}`, {
-            error: err,
-            siteId: req.params.siteId,
-            eventId: req.body.eventId,
-            vrm: req.body.vrm
-        });
+        logger.error('Error issuing PCN:', err);
         res.status(500).render('error', { message: 'Error issuing PCN' });
     } finally {
         if (conn) conn.release();
@@ -561,16 +568,26 @@ router.post('/carparks/:siteId/pcns/:pcnId/update-status', async (req, res) => {
     }
 });
 
-// Update camera add endpoint to accept entryDirection and exitDirection
+// Update camera add endpoint to accept entryDirection, exitDirection, admin_url, admin_username, admin_password
 router.post('/admin/cameras/add', async (req, res) => {
     let conn;
     try {
-        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
+        // Accept both JSON and form data
+        const body = req.body || {};
+        const name = body.name;
+        const carParkId = body.carParkId;
+        const isEntryTrigger = body.isEntryTrigger;
+        const isExitTrigger = body.isExitTrigger;
+        const direction = body.direction;
+        const entryDirection = body.entryDirection;
+        const exitDirection = body.exitDirection;
+        const admin_url = body.admin_url;
+        const admin_username = body.admin_username;
+        const admin_password = body.admin_password;
         conn = await pool.getConnection();
-        // Insert new camera with direction mapping
         await conn.query(
-            'INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, carParkId || null, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection]
+            'INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url, admin_username, admin_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, carParkId || null, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url, admin_username, admin_password]
         );
         res.redirect('/admin/cameras');
     } catch (err) {
@@ -581,15 +598,27 @@ router.post('/admin/cameras/add', async (req, res) => {
     }
 });
 
-// Update camera edit endpoint to support entryDirection and exitDirection
+// Update camera edit endpoint to support entryDirection, exitDirection, admin_url, admin_username, admin_password
 router.post('/admin/cameras/edit', async (req, res) => {
     let conn;
     try {
-        const { originalName, name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
+        // Accept both JSON and form data
+        const body = req.body || {};
+        const originalName = body.originalName;
+        const name = body.name;
+        const carParkId = body.carParkId;
+        const isEntryTrigger = body.isEntryTrigger;
+        const isExitTrigger = body.isExitTrigger;
+        const direction = body.direction;
+        const entryDirection = body.entryDirection;
+        const exitDirection = body.exitDirection;
+        const admin_url = body.admin_url;
+        const admin_username = body.admin_username;
+        const admin_password = body.admin_password;
         conn = await pool.getConnection();
         await conn.query(
-            'UPDATE cameras SET name = ?, carParkId = ?, isEntryTrigger = ?, isExitTrigger = ?, direction = ?, entryDirection = ?, exitDirection = ? WHERE name = ?',
-            [name, carParkId || null, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, originalName]
+            'UPDATE cameras SET name = ?, carParkId = ?, isEntryTrigger = ?, isExitTrigger = ?, direction = ?, entryDirection = ?, exitDirection = ?, admin_url = ?, admin_username = ?, admin_password = ? WHERE name = ?',
+            [name, carParkId || null, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url, admin_username, admin_password, originalName]
         );
         res.redirect('/admin/cameras');
     } catch (err) {
@@ -600,20 +629,155 @@ router.post('/admin/cameras/edit', async (req, res) => {
     }
 });
 
+// Update car park type
+router.post('/rules/:id/update-type', async (req, res) => {
+    let conn;
+    try {
+        const { siteId, carParkType } = req.body;
+        conn = await pool.getConnection();
+        await conn.query('UPDATE carparks SET carParkType = ? WHERE siteId = ?', [carParkType, siteId]);
+        res.redirect(`/admin/rules/${siteId}`);
+    } catch (err) {
+        logger.error('Error updating car park type:', err);
+        res.status(500).render('error', { message: 'Error updating car park type' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Add rule with new fields
 router.post('/rules/:id/add', async (req, res) => {
     let conn;
     try {
         conn = await pool.getConnection();
         const siteId = req.params.id;
-        const { name, ruleType, maxDurationMinutes, maxDailyDurationMinutes, maxWeeklyDurationMinutes, maxMonthlyDurationMinutes } = req.body;
+        const {
+            name,
+            ruleType,
+            description,
+            maxDurationMinutes,
+            maxDailyDurationMinutes,
+            maxWeeklyDurationMinutes,
+            maxMonthlyDurationMinutes,
+            freePeriodMinutes,
+            requiresRegistration,
+            requiresPayment,
+            gracePeriodMinutes,
+            priority,
+            activeDays,
+            activeStartTime,
+            activeEndTime,
+            notes
+        } = req.body;
+
         await conn.query(
-            'INSERT INTO rules (siteId, name, ruleType, maxDurationMinutes, maxDailyDurationMinutes, maxWeeklyDurationMinutes, maxMonthlyDurationMinutes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [siteId, name, ruleType, maxDurationMinutes || null, maxDailyDurationMinutes || null, maxWeeklyDurationMinutes || null, maxMonthlyDurationMinutes || null]
+            `INSERT INTO rules (
+                siteId, name, ruleType, description,
+                maxDurationMinutes, maxDailyDurationMinutes, maxWeeklyDurationMinutes, maxMonthlyDurationMinutes,
+                freePeriodMinutes, requiresRegistration, requiresPayment, gracePeriodMinutes,
+                priority, activeDays, activeStartTime, activeEndTime, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                siteId, name, ruleType, description,
+                maxDurationMinutes || null,
+                maxDailyDurationMinutes || null,
+                maxWeeklyDurationMinutes || null,
+                maxMonthlyDurationMinutes || null,
+                freePeriodMinutes || null,
+                requiresRegistration === 'on' || requiresRegistration === true,
+                requiresPayment === 'on' || requiresPayment === true,
+                gracePeriodMinutes || 0,
+                priority || 0,
+                activeDays || 'All',
+                activeStartTime || null,
+                activeEndTime || null,
+                notes || null
+            ]
         );
         res.redirect(`/admin/rules/${siteId}`);
     } catch (err) {
         logger.error('Error adding rule:', err);
         res.status(500).render('error', { message: 'Error adding rule' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Edit rule endpoint
+router.post('/rules/edit', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const {
+            ruleId,
+            name,
+            ruleType,
+            description,
+            maxDurationMinutes,
+            maxDailyDurationMinutes,
+            maxWeeklyDurationMinutes,
+            maxMonthlyDurationMinutes,
+            freePeriodMinutes,
+            requiresRegistration,
+            requiresPayment,
+            gracePeriodMinutes,
+            priority,
+            activeDays,
+            activeStartTime,
+            activeEndTime,
+            notes,
+            contraventionDetails
+        } = req.body;
+
+        // Get siteId for redirect
+        const [rule] = await conn.query('SELECT siteId FROM rules WHERE id = ?', [ruleId]);
+        const siteId = rule ? rule.siteId : '';
+
+        await conn.query(
+            `UPDATE rules SET
+                name = ?,
+                ruleType = ?,
+                description = ?,
+                maxDurationMinutes = ?,
+                maxDailyDurationMinutes = ?,
+                maxWeeklyDurationMinutes = ?,
+                maxMonthlyDurationMinutes = ?,
+                freePeriodMinutes = ?,
+                requiresRegistration = ?,
+                requiresPayment = ?,
+                gracePeriodMinutes = ?,
+                priority = ?,
+                activeDays = ?,
+                activeStartTime = ?,
+                activeEndTime = ?,
+                notes = ?,
+                contraventionDetails = ?
+            WHERE id = ?`,
+            [
+                name,
+                ruleType,
+                description,
+                maxDurationMinutes || null,
+                maxDailyDurationMinutes || null,
+                maxWeeklyDurationMinutes || null,
+                maxMonthlyDurationMinutes || null,
+                freePeriodMinutes || null,
+                requiresRegistration === 'on' || requiresRegistration === true,
+                requiresPayment === 'on' || requiresPayment === true,
+                gracePeriodMinutes || 0,
+                priority || 0,
+                activeDays || 'All',
+                activeStartTime || null,
+                activeEndTime || null,
+                notes || null,
+                contraventionDetails || null,
+                ruleId
+            ]
+        );
+        res.redirect(`/admin/rules/${siteId}`);
+    } catch (err) {
+        logger.error('Error editing rule:', err);
+        res.status(500).render('error', { message: 'Error editing rule' });
     } finally {
         if (conn) conn.release();
     }
@@ -1113,14 +1277,73 @@ router.get('/pcns', async (req, res) => {
     }
 });
 
+// PCN Review Page
+router.get('/pcns/review', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        // Get all PCNs in 'possible' status with their evidence
+        const pcns = await conn.query(`
+            SELECT p.*, cp.name as carparkName, e.entryTime, e.exitTime
+            FROM pcns p
+            LEFT JOIN carparks cp ON p.siteId = cp.siteId
+            LEFT JOIN parking_events e ON p.eventId = e.id
+            WHERE p.status = 'possible'
+            ORDER BY p.issueTime DESC
+        `);
+
+        // For each PCN, get related events and PCN history
+        for (const pcn of pcns) {
+            // Get other events for this VRM at this car park
+            const [relatedEvents] = await conn.query(`
+                SELECT e.*, cp.name as carparkName
+                FROM parking_events e
+                LEFT JOIN carparks cp ON e.siteId = cp.siteId
+                WHERE e.VRM = ? AND e.siteId = ? AND e.id != ?
+                ORDER BY e.entryTime DESC
+                LIMIT 5
+            `, [pcn.VRM, pcn.siteId, pcn.eventId]);
+
+            // Get PCN history for this VRM
+            const [pcnHistory] = await conn.query(`
+                SELECT p.*, cp.name as carparkName
+                FROM pcns p
+                LEFT JOIN carparks cp ON p.siteId = cp.siteId
+                WHERE p.VRM = ? AND p.id != ?
+                ORDER BY p.issueTime DESC
+                LIMIT 5
+            `, [pcn.VRM, pcn.id]);
+
+            // Add the related data to the PCN object
+            pcn.relatedEvents = relatedEvents || [];
+            pcn.pcnHistory = pcnHistory || [];
+        }
+
+        res.render('admin/pcn_review', { pcns });
+    } catch (err) {
+        logger.error('Error loading PCN review page:', err);
+        res.status(500).render('error', { message: 'Error loading PCN review page' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // --- PCN Status API Endpoints ---
 router.post('/api/pcns/:id/confirm', async (req, res) => {
     let conn;
     try {
         conn = await pool.getConnection();
         const { id } = req.params;
-        await conn.query('UPDATE pcns SET status = ?, updatedAt = NOW() WHERE id = ?', ['active', id]);
-        res.json({ success: true, status: 'active' });
+        // Generate a unique 6-8 digit reference number (not sequential, not DB id)
+        let reference;
+        let isUnique = false;
+        while (!isUnique) {
+            reference = Math.floor(100000 + Math.random() * 90000000).toString(); // 6-8 digits
+            const [existing] = await conn.query('SELECT id FROM pcns WHERE reference = ?', [reference]);
+            if (!existing) isUnique = true;
+        }
+        await conn.query('UPDATE pcns SET status = ?, updatedAt = NOW(), reference = ? WHERE id = ?', ['active', reference, id]);
+        res.json({ success: true, status: 'active', reference });
     } catch (err) {
         logger.error('Error confirming PCN:', err);
         res.status(500).json({ error: 'Error confirming PCN' });
@@ -1128,6 +1351,24 @@ router.post('/api/pcns/:id/confirm', async (req, res) => {
         if (conn) conn.release();
     }
 });
+
+// Add endpoint for adding notes to a PCN
+router.post('/api/pcns/:id/notes', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const { id } = req.params;
+        const { notes } = req.body;
+        await conn.query('UPDATE pcns SET notes = ?, updatedAt = NOW() WHERE id = ?', [notes, id]);
+        res.json({ success: true });
+    } catch (err) {
+        logger.error('Error updating PCN notes:', err);
+        res.status(500).json({ error: 'Error updating PCN notes' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 router.post('/api/pcns/:id/cancel', async (req, res) => {
     let conn;
     try {
@@ -1142,6 +1383,7 @@ router.post('/api/pcns/:id/cancel', async (req, res) => {
         if (conn) conn.release();
     }
 });
+
 router.post('/api/pcns/:id/paid', async (req, res) => {
     let conn;
     try {
@@ -1152,6 +1394,293 @@ router.post('/api/pcns/:id/paid', async (req, res) => {
     } catch (err) {
         logger.error('Error marking PCN as paid:', err);
         res.status(500).json({ error: 'Error marking PCN as paid' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Generate possible PCNs for a car park
+router.post('/rules/:id/generate-pcns', async (req, res) => {
+    let conn;
+    try {
+        const siteId = req.params.id;
+        conn = await pool.getConnection();
+        
+        // Get car park type and rules
+        const [carpark] = await conn.query('SELECT * FROM carparks WHERE siteId = ?', [siteId]);
+        const rules = await conn.query('SELECT * FROM rules WHERE siteId = ? AND isActive = true', [siteId]);
+        
+        if (!rules.length) {
+            return res.json({ success: false, error: 'No active rules found for this car park' });
+        }
+        
+        // Get all completed events not already linked to a PCN
+        const events = await conn.query(
+            `SELECT e.* FROM parking_events e
+            LEFT JOIN pcns p ON e.id = p.eventId
+            WHERE e.siteId = ? AND e.exitTime IS NOT NULL AND p.id IS NULL`,
+            [siteId]
+        );
+        
+        let pcnsGenerated = 0;
+        
+        // Process each event
+        for (const event of events) {
+            if (carpark.carParkType === 'private') {
+                // For private car parks, whitelist is primary
+                const whitelistRule = rules.find(r => r.ruleType === 'whitelist');
+                if (whitelistRule) {
+                    const [whitelisted] = await conn.query(
+                        'SELECT * FROM whitelist WHERE carParkId = ? AND VRM = ? AND active = true',
+                        [siteId, event.VRM]
+                    );
+                    if (!whitelisted) {
+                        // Not whitelisted - issue PCN after grace period
+                        const graceEnd = new Date(event.entryTime.getTime() + (whitelistRule.gracePeriodMinutes || 0) * 60000);
+                        if (event.exitTime > graceEnd) {
+                            await createPCN(conn, {
+                                siteId,
+                                eventId: event.id,
+                                ruleId: whitelistRule.id,
+                                VRM: event.VRM,
+                                reason: `Vehicle not on whitelist for ${carpark.name}`
+                            });
+                            pcnsGenerated++;
+                            continue;
+                        }
+                    }
+                }
+            } else {
+                // For public car parks, check all applicable rules
+                for (const rule of rules) {
+                    let shouldIssuePCN = false;
+                    let reason = '';
+                    
+                    switch (rule.ruleType) {
+                        case 'time_limit':
+                            if (rule.maxDurationMinutes && event.durationMinutes > rule.maxDurationMinutes) {
+                                shouldIssuePCN = true;
+                                reason = `Exceeded maximum stay of ${rule.maxDurationMinutes} minutes`;
+                            }
+                            break;
+                            
+                        case 'payment':
+                            if (rule.requiresPayment) {
+                                const [payment] = await conn.query(
+                                    'SELECT * FROM payments WHERE eventId = ?',
+                                    [event.id]
+                                );
+                                if (!payment) {
+                                    shouldIssuePCN = true;
+                                    reason = 'Payment required but not made';
+                                }
+                            }
+                            break;
+                            
+                        case 'registration':
+                            if (rule.requiresRegistration) {
+                                const [registration] = await conn.query(
+                                    'SELECT * FROM registrations WHERE eventId = ?',
+                                    [event.id]
+                                );
+                                if (!registration) {
+                                    shouldIssuePCN = true;
+                                    reason = 'Registration required but not completed';
+                                }
+                            }
+                            break;
+                            
+                        case 'free_period':
+                            if (rule.freePeriodMinutes && event.durationMinutes > rule.freePeriodMinutes) {
+                                if (rule.requiresPayment) {
+                                    const [payment] = await conn.query(
+                                        'SELECT * FROM payments WHERE eventId = ?',
+                                        [event.id]
+                                    );
+                                    if (!payment) {
+                                        shouldIssuePCN = true;
+                                        reason = `Exceeded free period of ${rule.freePeriodMinutes} minutes without payment`;
+                                    }
+                                }
+                            }
+                            break;
+                    }
+                    
+                    if (shouldIssuePCN) {
+                        const graceEnd = new Date(event.entryTime.getTime() + (rule.gracePeriodMinutes || 0) * 60000);
+                        if (event.exitTime > graceEnd) {
+                            await createPCN(conn, {
+                                siteId,
+                                eventId: event.id,
+                                ruleId: rule.id,
+                                VRM: event.VRM,
+                                reason
+                            });
+                            pcnsGenerated++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        res.json({
+            success: true,
+            eventsChecked: events.length,
+            pcnsGenerated
+        });
+    } catch (err) {
+        logger.error('Error generating PCNs:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Helper function to validate VRM
+function isValidVRM(vrm) {
+    if (!vrm || vrm === 'UNKNOWN' || vrm.toUpperCase() === 'UNKNOWN') return false;
+    return /^[A-Z0-9]{2,7}$/.test(vrm);
+}
+
+// Helper function to create a PCN
+async function createPCN(conn, { siteId, eventId, ruleId, VRM, reason }) {
+    try {
+        // Validate VRM
+        if (!isValidVRM(VRM)) {
+            logger.info(`[PCN Generation] Skipping PCN generation for invalid VRM: ${VRM}`);
+            return;
+        }
+
+        // Get the rule details
+        const ruleResult = await conn.query('SELECT * FROM rules WHERE id = ?', [ruleId]);
+        logger.info('[PCN Generation] Rule query result:', { ruleResult });
+        
+        // Handle the rule result
+        const rule = Array.isArray(ruleResult) ? ruleResult[0] : null;
+        logger.info('[PCN Generation] Extracted rule:', { rule });
+        
+        // Get all event details including images
+        const [eventDetails] = await conn.query(`
+            SELECT 
+                e.*,
+                ed.image1 as entryImage,
+                ed.image2 as entryImage2,
+                ed.image1_data as entryImageData,
+                ed.image2_data as entryImage2Data,
+                ed.direction as entryDirection,
+                ed.confidence as entryConfidence,
+                ed.tag as entryTag,
+                ed.tagConfidence as entryTagConfidence,
+                ed.country as entryCountry,
+                xd.image1 as exitImage,
+                xd.image2 as exitImage2,
+                xd.image1_data as exitImageData,
+                xd.image2_data as exitImage2Data,
+                xd.direction as exitDirection,
+                xd.confidence as exitConfidence,
+                xd.tag as exitTag,
+                xd.tagConfidence as exitTagConfidence,
+                xd.country as exitCountry,
+                ec.name as entryCamera,
+                xc.name as exitCamera
+            FROM parking_events e
+            LEFT JOIN anpr_detections ed ON e.entryDetectionId = ed.id
+            LEFT JOIN anpr_detections xd ON e.exitDetectionId = xd.id
+            LEFT JOIN cameras ec ON e.entryCameraId = ec.name
+            LEFT JOIN cameras xc ON e.exitCameraId = xc.name
+            WHERE e.id = ?
+        `, [eventId]);
+        
+        if (!eventDetails) {
+            throw new Error('Event not found');
+        }
+        
+        // Set default values
+        const defaultAmount = rule?.pcnAmount || 150.00;
+        const defaultReason = rule?.contraventionDetails || 
+            (rule?.ruleType === 'whitelist' ? 'Without a valid permit or authority' : 'Without valid pay & display ticket');
+        
+        // Create evidence JSON
+        const evidence = {
+            entryTime: eventDetails.entryTime,
+            exitTime: eventDetails.exitTime,
+            durationMinutes: eventDetails.durationMinutes,
+            entryImage: eventDetails.entryImage,
+            entryImage2: eventDetails.entryImage2,
+            exitImage: eventDetails.exitImage,
+            exitImage2: eventDetails.exitImage2,
+            entryImageData: eventDetails.entryImageData ? eventDetails.entryImageData.toString('base64') : null,
+            entryImage2Data: eventDetails.entryImage2Data ? eventDetails.entryImage2Data.toString('base64') : null,
+            exitImageData: eventDetails.exitImageData ? eventDetails.exitImageData.toString('base64') : null,
+            exitImage2Data: eventDetails.exitImage2Data ? eventDetails.exitImage2Data.toString('base64') : null,
+            entryDirection: eventDetails.entryDirection,
+            exitDirection: eventDetails.exitDirection,
+            entryConfidence: eventDetails.entryConfidence,
+            exitConfidence: eventDetails.exitConfidence,
+            entryTag: eventDetails.entryTag,
+            exitTag: eventDetails.exitTag,
+            entryTagConfidence: eventDetails.entryTagConfidence,
+            exitTagConfidence: eventDetails.exitTagConfidence,
+            entryCountry: eventDetails.entryCountry,
+            exitCountry: eventDetails.exitCountry,
+            entryCamera: eventDetails.entryCamera,
+            exitCamera: eventDetails.exitCamera,
+            ruleDetails: {
+                ruleType: rule?.ruleType,
+                ruleName: rule?.name,
+                maxDurationMinutes: rule?.maxDurationMinutes,
+                gracePeriodMinutes: rule?.gracePeriodMinutes
+            }
+        }
+        
+        const insertResult = await conn.query(
+            `INSERT INTO pcns (
+                siteId, eventId, ruleId, VRM, 
+                issueTime, issueDate, dueDate, 
+                amount, reason, status, notes,
+                evidence
+            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possible', ?, ?)`,
+            [
+                siteId, 
+                eventId, 
+                ruleId, 
+                VRM, 
+                defaultAmount, 
+                defaultReason, 
+                reason,
+                JSON.stringify(evidence)
+            ]
+        );
+        logger.info('[PCN Generation] Insert result:', { insertResult });
+        
+        const pcnId = insertResult.insertId;
+        
+        // Log the PCN creation
+        await conn.query(
+            'INSERT INTO pcn_audit_log (pcnId, eventId, ruleId, siteId, action, message) VALUES (?, ?, ?, ?, ?, ?)',
+            [pcnId, eventId, ruleId, siteId, 'created', reason]
+        );
+        
+        logger.info(`[PCN Generation] Created PCN ${pcnId} for ${VRM} at ${siteId}: ${reason}`);
+    } catch (err) {
+        logger.error('[PCN Generation] Error creating PCN:', err);
+        throw err;
+    }
+}
+
+// Delete all PCNs (no admin check, delete audit log first)
+router.post('/pcns/delete-all', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        await conn.query('DELETE FROM pcn_audit_log');
+        const result = await conn.query('DELETE FROM pcns');
+        // Log to audit (if you want to keep a record, you could log elsewhere)
+        logger.warn(`[ADMIN] All PCNs and audit logs deleted`);
+        res.json({ success: true, deleted: result.affectedRows });
+    } catch (err) {
+        logger.error('Error deleting all PCNs:', err);
+        res.status(500).json({ error: 'Error deleting all PCNs' });
     } finally {
         if (conn) conn.release();
     }

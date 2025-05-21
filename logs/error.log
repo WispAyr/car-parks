@@ -73,3 +73,146 @@
 [31m                status,[39m
 [31m                whitelistMatch,[39m
 [31m                paym...[39m
+2025-05-21 12:49:19:4919 [31merror[39m: [31mError loading car park dashboard: (conn:23666, no: 1054, SQLState: 42S22) Unknown column 'whitelistMatch' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                id,[39m
+[31m                VRM,[39m
+[31m                entryTime,[39m
+[31m                exitTime,[39m
+[31m                durationMinutes,[39m
+[31m                throughTraffic,[39m
+[31m                status,[39m
+[31m                whitelistMatch,[39m
+[31m                paym...[39m
+2025-05-21 13:04:07:47 [31merror[39m: [31mError updating car park type: (conn:23669, no: 1054, SQLState: 42S22) Unknown column 'carParkType' in 'field list'[39m
+[31msql: UPDATE carparks SET carParkType = ? WHERE siteId = ? - parameters:['public','CP7'][39m
+2025-05-21 13:10:22:1022 [31merror[39m: [31mError deleting camera: (conn:23735, no: 1054, SQLState: 42S22) Unknown column 'id' in 'where clause'[39m
+[31msql: DELETE FROM cameras WHERE id = ? - parameters:['CoastalPlaza'][39m
+2025-05-21 13:25:55:2555 [31merror[39m: [31mError updating car park type: (conn:23778, no: 1054, SQLState: 42S22) Unknown column 'carParkType' in 'field list'[39m
+[31msql: UPDATE carparks SET carParkType = ? WHERE siteId = ? - parameters:['private','CP6'][39m
+2025-05-21 13:26:34:2634 [31merror[39m: [31mError updating car park type: (conn:23769, no: 1054, SQLState: 42S22) Unknown column 'carParkType' in 'field list'[39m
+[31msql: UPDATE carparks SET carParkType = ? WHERE siteId = ? - parameters:['private','CP6'][39m
+2025-05-21 13:26:52:2652 [31merror[39m: [31mError updating car park type: (conn:23785, no: 1054, SQLState: 42S22) Unknown column 'carParkType' in 'field list'[39m
+[31msql: UPDATE carparks SET carParkType = ? WHERE siteId = ? - parameters:['private','CP6'][39m
+2025-05-21 13:28:13:2813 [31merror[39m: [31mError adding rule: (conn:23797, no: 1054, SQLState: 42S22) Unknown column 'freePeriodMinutes' in 'field list'[39m
+[31msql: INSERT INTO rules ([39m
+[31m                siteId, name, ruleType, description,[39m
+[31m                maxDurationMinutes, maxDailyDurationMinutes, maxWeeklyDurationMinutes, maxMonthlyDurationMinutes,[39m
+[31m                freePeriodMinutes, requiresRegistration, requiresPaym...[39m
+2025-05-21 13:29:04:294 [31merror[39m: [31mError adding rule: (conn:23801, no: 1054, SQLState: 42S22) Unknown column 'freePeriodMinutes' in 'field list'[39m
+[31msql: INSERT INTO rules ([39m
+[31m                siteId, name, ruleType, description,[39m
+[31m                maxDurationMinutes, maxDailyDurationMinutes, maxWeeklyDurationMinutes, maxMonthlyDurationMinutes,[39m
+[31m                freePeriodMinutes, requiresRegistration, requiresPaym...[39m
+2025-05-21 13:31:56:3156 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23814, no: 1054, SQLState: 42S22) Unknown column 'ruleId' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:31:56:3156 [31merror[39m: [31mError generating PCNs: (conn:23814, no: 1054, SQLState: 42S22) Unknown column 'ruleId' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:32:58:3258 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23784, no: 1054, SQLState: 42S22) Unknown column 'ruleId' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:32:58:3258 [31merror[39m: [31mError generating PCNs: (conn:23784, no: 1054, SQLState: 42S22) Unknown column 'ruleId' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:33:59:3359 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23785, no: 1054, SQLState: 42S22) Unknown column 'notes' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:33:59:3359 [31merror[39m: [31mError generating PCNs: (conn:23785, no: 1054, SQLState: 42S22) Unknown column 'notes' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:34:10:3410 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23851, no: 1054, SQLState: 42S22) Unknown column 'notes' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:34:10:3410 [31merror[39m: [31mError generating PCNs: (conn:23851, no: 1054, SQLState: 42S22) Unknown column 'notes' in 'field list'[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:35:52:3552 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23852, no: 1364, SQLState: HY000) Field 'issueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:35:52:3552 [31merror[39m: [31mError generating PCNs: (conn:23852, no: 1364, SQLState: HY000) Field 'issueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, status, notes) VALUES (?, ?, ?, ?, NOW(), ?, ?) - parameters:['CP1',8,2,'RK68WMJ','issued','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:43:15:4315 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23888, no: 1364, SQLState: HY000) Field 'dueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:43:15:4315 [31merror[39m: [31mError generating PCNs: (conn:23888, no: 1364, SQLState: HY000) Field 'dueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:43:21:4321 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23889, no: 1364, SQLState: HY000) Field 'dueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:43:21:4321 [31merror[39m: [31mError generating PCNs: (conn:23889, no: 1364, SQLState: HY000) Field 'dueDate' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:44:53:4453 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23891, no: 1364, SQLState: HY000) Field 'amount' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:44:53:4453 [31merror[39m: [31mError generating PCNs: (conn:23891, no: 1364, SQLState: HY000) Field 'amount' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:45:10:4510 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23914, no: 1364, SQLState: HY000) Field 'amount' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:45:10:4510 [31merror[39m: [31mError generating PCNs: (conn:23914, no: 1364, SQLState: HY000) Field 'amount' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:47:01:471 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23915, no: 1364, SQLState: HY000) Field 'reason' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:47:01:471 [31merror[39m: [31mError generating PCNs: (conn:23915, no: 1364, SQLState: HY000) Field 'reason' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:47:18:4718 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:23946, no: 1364, SQLState: HY000) Field 'reason' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:47:18:4718 [31merror[39m: [31mError generating PCNs: (conn:23946, no: 1364, SQLState: HY000) Field 'reason' doesn't have a default value[39m
+[31msql: INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, status, notes) [39m
+[31m             VALUES (?, ?, ?, ?, NOW(), NOW(), 'possible', ?) - parameters:['CP1',8,2,'RK68WMJ','Vehicle not on whitelist for Greenford'][39m
+2025-05-21 13:58:13:5813 [31merror[39m: [31mError editing rule: (conn:24056, no: 1054, SQLState: 42S22) Unknown column 'contraventionDetails' in 'field list'[39m
+[31msql: UPDATE rules SET[39m
+[31m                name = ?,[39m
+[31m                ruleType = ?,[39m
+[31m                description = ?,[39m
+[31m                maxDurationMinutes = ?,[39m
+[31m                maxDailyDurationMinutes = ?,[39m
+[31m                maxWeeklyDurationMinutes = ?,[39m
+[31m                max...[39m
+2025-05-21 13:58:52:5852 [31merror[39m: [31m[PCN Generation] Error creating PCN: rule is not defined[39m
+2025-05-21 13:58:52:5852 [31merror[39m: [31mError generating PCNs: rule is not defined[39m
+2025-05-21 13:59:04:594 [31merror[39m: [31m[PCN Generation] Error creating PCN: rule is not defined[39m
+2025-05-21 13:59:04:594 [31merror[39m: [31mError generating PCNs: rule is not defined[39m
+2025-05-21 14:01:48:148 [31merror[39m: [31m[PCN Generation] Error creating PCN: rule is not defined[39m
+2025-05-21 14:01:48:148 [31merror[39m: [31mError generating PCNs: rule is not defined[39m
+2025-05-21 14:02:00:20 [31merror[39m: [31m[PCN Generation] Error creating PCN: rule is not defined[39m
+2025-05-21 14:02:00:20 [31merror[39m: [31mError generating PCNs: rule is not defined[39m
+2025-05-21 14:02:38:238 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24129, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possibl...[39m
+2025-05-21 14:02:38:238 [31merror[39m: [31mError generating PCNs: (conn:24129, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possibl...[39m
+2025-05-21 14:03:11:311 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24130, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possibl...[39m
+2025-05-21 14:03:11:311 [31merror[39m: [31mError generating PCNs: (conn:24130, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possibl...[39m
+2025-05-21 14:03:18:318 [31merror[39m: [31m[PCN Generation] Error creating PCN: (intermediate value) is not iterable[39m
+2025-05-21 14:03:18:318 [31merror[39m: [31mError generating PCNs: (intermediate value) is not iterable[39m
+2025-05-21 14:03:52:352 [31merror[39m: [31m[PCN Generation] Error creating PCN: (intermediate value) is not iterable[39m
+2025-05-21 14:03:53:353 [31merror[39m: [31mError generating PCNs: (intermediate value) is not iterable[39m
+2025-05-21 14:04:02:42 [31merror[39m: [31m[PCN Generation] Error creating PCN: (intermediate value) is not iterable[39m
+2025-05-21 14:04:02:42 [31merror[39m: [31mError generating PCNs: (intermediate value) is not iterable[39m
+2025-05-21 14:04:36:436 [31merror[39m: [31m[PCN Generation] Error creating PCN: (intermediate value) is not iterable[39m
+2025-05-21 14:04:37:437 [31merror[39m: [31mError generating PCNs: (intermediate value) is not iterable[39m
+2025-05-21 14:27:40:2740 [31merror[39m: [31mError updating PCN notes: (conn:24302, no: 1054, SQLState: 42S22) Unknown column 'updatedAt' in 'field list'[39m
+[31msql: UPDATE pcns SET notes = ?, updatedAt = NOW() WHERE id = ? - parameters:['Vehicle not on whitelist for Yorkshire In Business test','10'][39m
+2025-05-21 14:45:53:4553 [31merror[39m: [31mError deleting all PCNs: (conn:24458, no: 1451, SQLState: 23000) Cannot delete or update a parent row: a foreign key constraint fails (`nocobase`.`pcn_audit_log`, CONSTRAINT `pcn_audit_log_ibfk_1` FOREIGN KEY (`pcnId`) REFERENCES `pcns` (`id`))[39m
+[31msql: DELETE FROM pcns - parameters:[][39m
+2025-05-21 14:48:46:4846 [31merror[39m: [31mError deleting all PCNs: (conn:24461, no: 1451, SQLState: 23000) Cannot delete or update a parent row: a foreign key constraint fails (`nocobase`.`pcn_audit_log`, CONSTRAINT `pcn_audit_log_ibfk_1` FOREIGN KEY (`pcnId`) REFERENCES `pcns` (`id`))[39m
+[31msql: DELETE FROM pcns - parameters:[][39m

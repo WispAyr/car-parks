@@ -419,46 +419,9 @@
                     }
                 });
             }
-            // DataTables: Only initialize if the table exists
-            if ($('#eventsTable').length) {
-                $('#eventsTable').DataTable({
-                    order: [[1, 'desc']],
-                    pageLength: 25,
-                    dom: 'Bfrtip',
-                    buttons: [
-                        {
-                            extend: 'collection',
-                            text: 'Export',
-                            buttons: [
-                                'copy',
-                                'excel',
-                                'csv',
-                                'pdf',
-                                'print'
-                            ]
-                        }
-                    ],
-                    language: {
-                        search: "Search events:"
-                    }
-                });
-            }
-        });
 
-        // Initialize date pickers
-        flatpickr("#startDate", {
-            dateFormat: "Y-m-d",
-            maxDate: "today"
-        });
-        flatpickr("#endDate", {
-            dateFormat: "Y-m-d",
-            maxDate: "today"
-        });
-
-        // Initialize DataTables with custom filtering
-        let eventsTable;
-        $(document).ready(function() {
-            eventsTable = $('#eventsTable').DataTable({
+            // Initialize DataTables with custom filtering
+            let eventsTable = $('#eventsTable').DataTable({
                 order: [[1, 'desc']], // Sort by entry time by default
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -507,52 +470,15 @@
             });
         });
 
-        // Event handling functions
-        async function viewEventDetails(eventId) {
-            try {
-                const response = await fetch(`/api/events/${eventId}`);
-                const event = await response.json();
-                // Entry details
-                document.getElementById('entryTime').textContent = event.entryTime ? new Date(event.entryTime).toLocaleString() : '-';
-                document.getElementById('entryVRM').textContent = event.VRM || '-';
-                document.getElementById('entryCamera').textContent = event.entryCamera || '-';
-                document.getElementById('entryDirection').textContent = event.entryDirection || '-';
-                document.getElementById('entryConfidence').textContent = event.entryConfidence !== undefined ? event.entryConfidence + '%' : '-';
-                document.getElementById('entryTag').textContent = event.entryTag || '-';
-                document.getElementById('entryTagConfidence').textContent = event.entryTagConfidence !== undefined ? event.entryTagConfidence + '%' : '-';
-                document.getElementById('entryCountry').textContent = event.entryCountry || '-';
-                // Exit details
-                document.getElementById('exitTime').textContent = (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still parked';
-                document.getElementById('exitVRM').textContent = event.VRM || '-';
-                document.getElementById('exitCamera').textContent = event.exitCamera || '-';
-                document.getElementById('exitDirection').textContent = event.exitDirection || '-';
-                document.getElementById('exitConfidence').textContent = event.exitConfidence !== undefined ? event.exitConfidence + '%' : '-';
-                document.getElementById('exitTag').textContent = event.exitTag || '-';
-                document.getElementById('exitTagConfidence').textContent = event.exitTagConfidence !== undefined ? event.exitTagConfidence + '%' : '-';
-                document.getElementById('exitCountry').textContent = event.exitCountry || '-';
-                document.getElementById('exitDuration').textContent = event.durationMinutes ? event.durationMinutes.toFixed(2) + ' min' : '-';
-                // Images
-                var imagesHtml = [];
-                if (event.entryImage) {
-                    imagesHtml.push('<div class="col-md-6 mb-3"><h6>Entry Image</h6><img src="/image/' + event.entryDetectionId + '/1" class="event-image" onclick="showFullImage(this.src)"></div>');
-                }
-                if (event.exitImage) {
-                    imagesHtml.push('<div class="col-md-6 mb-3"><h6>Exit Image</h6><img src="/image/' + event.exitDetectionId + '/1" class="event-image" onclick="showFullImage(this.src)"></div>');
-                }
-                document.getElementById('eventImages').innerHTML = imagesHtml.join('');
-                const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
-                modal.show();
-            } catch (error) {
-                console.error('Error fetching event details:', error);
-                alert('Error loading event details');
-            }
-        }
-
-        function showFullImage(src) {
-            const modal = new bootstrap.Modal(document.getElementById('imageModal'));
-            document.getElementById('modalImage').src = src;
-            modal.show();
-        }
+        // Initialize date pickers
+        flatpickr("#startDate", {
+            dateFormat: "Y-m-d",
+            maxDate: "today"
+        });
+        flatpickr("#endDate", {
+            dateFormat: "Y-m-d",
+            maxDate: "today"
+        });
 
         // Filter handling
         $('#dateRange').on('change', function() {

@@ -25,6 +25,12 @@ app.use((req, res, next) => {
     next();
 });
 
+// Helper function for VRM validation
+function isValidVRM(vrm) {
+    if (!vrm || vrm === 'UNKNOWN' || vrm.toUpperCase() === 'UNKNOWN') return false;
+    return /^[A-Z0-9]{2,7}$/.test(vrm);
+}
+
 // Helper function for VRM normalization
 function normalizeVRM(vrm) {
     if (!vrm) return vrm;
@@ -196,9 +202,11 @@ app.get('/events', async (req, res) => {
                 pe.status,
                 pe.entryDetectionId,
                 pe.exitDetectionId,
+                cp.name as carParkName,
                 (LENGTH(entry_d.image1) > 0) as hasEntryImage,
                 (LENGTH(exit_d.image1) > 0) as hasExitImage
             FROM parking_events pe
+            LEFT JOIN carparks cp ON pe.siteId = cp.siteId
             LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
             LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
             WHERE 1=1
@@ -210,6 +218,10 @@ app.get('/events', async (req, res) => {
             query += ' AND pe.siteId = ?';
             params.push(selectedCarPark);
         }
+        if (vrm) {
+            query += ' AND pe.VRM LIKE ?';
+            params.push(`%${vrm}%`);
+        }
         if (startDate) {
             query += ' AND pe.entryTime >= ?';
             params.push(startDate);
@@ -218,24 +230,21 @@ app.get('/events', async (req, res) => {
             query += ' AND pe.entryTime <= ?';
             params.push(endDate + ' 23:59:59');
         }
-        if (vrm) {
-            query += ' AND pe.VRM LIKE ?';
-            params.push(`%${vrm}%`);
-        }
-        query += ' ORDER BY pe.entryTime DESC LIMIT 100';
-        console.log('EVENTS QUERY:', query, params);
+        query += ' ORDER BY pe.entryTime DESC LIMIT 1000';
+        
         const events = await conn.query(query, params);
+        
         res.render('events', { 
-            events,
-            carparks,
+            carparks, 
             selectedCarPark,
+            vrm,
             startDate,
             endDate,
-            vrm
+            events
         });
     } catch (err) {
-        console.error('Error loading events (with images):', err);
-        res.status(500).send('Error loading events (with images)');
+        console.error('Error loading events:', err);
+        res.status(500).render('error', { message: 'Error loading events' });
     } finally {
         if (conn) conn.release();
     }
@@ -246,15 +255,53 @@ app.get('/', async (req, res) => {
     let conn;
     try {
         conn = await pool.getConnection();
-        // Get all car parks for filter dropdown
-        const carparks = await conn.query('SELECT siteId, name FROM carparks ORDER BY name');
-        // Redirect to events page which has the proper dashboard UI
-        res.render('events', { 
-            carparks, 
-            selectedCarPark: '', 
-            selectedStatus: '',
-            events: [],
-            tab: 'completed' // Add the tab parameter for proper navigation highlighting
+        
+        // Get basic stats for the dashboard
+        const [stats] = await conn.query(`
+            SELECT 
+                COUNT(*) as totalEvents,
+                SUM(CASE WHEN exitTime IS NULL THEN 1 ELSE 0 END) as currentlyParked,
+                COUNT(DISTINCT siteId) as totalCarParks,
+                SUM(CASE 
+                    WHEN entryTime >= DATE_SUB(NOW(), INTERVAL 1 HOUR) 
+                    THEN 1 ELSE 0 END) as lastHourEvents,
+                SUM(CASE 
+                    WHEN entryTime >= DATE_SUB(NOW(), INTERVAL 24 HOUR) 
+                    AND exitTime IS NULL 
+                    THEN 1 ELSE 0 END) as overstays
+            FROM parking_events
+            WHERE entryTime >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        `);
+
+        // Get recent events for the dashboard
+        const recentEvents = await conn.query(`
+            SELECT 
+                pe.id,
+                pe.VRM,
+                pe.entryTime,
+                pe.exitTime,
+                pe.status,
+                cp.name as carParkName,
+                entry_d.image1 as entryImage,
+                exit_d.image1 as exitImage
+            FROM parking_events pe
+            LEFT JOIN carparks cp ON pe.siteId = cp.siteId
+            LEFT JOIN anpr_detections entry_d ON pe.entryDetectionId = entry_d.id
+            LEFT JOIN anpr_detections exit_d ON pe.exitDetectionId = exit_d.id
+            WHERE pe.entryTime >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY pe.entryTime DESC
+            LIMIT 5
+        `);
+
+        res.render('dashboard', { 
+            stats: stats || { 
+                totalEvents: 0, 
+                currentlyParked: 0, 
+                totalCarParks: 0,
+                lastHourEvents: 0,
+                overstays: 0
+            },
+            recentEvents: recentEvents || []
         });
     } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -493,13 +540,15 @@ setInterval(async () => {
             const grace = cp.gracePeriodMinutes || 0;
             logger.info(`[PCN Automation] Processing car park ${siteId} with grace period ${grace} minutes`);
             
-            // Get all active, autoEnforce rules for this car park
-            const rules = await conn.query('SELECT * FROM rules WHERE siteId = ? AND isActive = true AND autoEnforce = true', [siteId]);
+            // Get car park type and rules
+            const [carpark] = await conn.query('SELECT * FROM carparks WHERE siteId = ?', [siteId]);
+            const rules = await conn.query('SELECT * FROM rules WHERE siteId = ? AND isActive = true', [siteId]);
+            
             if (!rules.length) {
-                logger.info(`[PCN Automation] No active auto-enforce rules found for car park ${siteId}`);
+                logger.info(`[PCN Automation] No active rules found for car park ${siteId}`);
                 continue;
             }
-            logger.info(`[PCN Automation] Found ${rules.length} active auto-enforce rules for car park ${siteId}`);
+            logger.info(`[PCN Automation] Found ${rules.length} active rules for car park ${siteId}`);
             
             // Get all completed events since lastChecked (or last 24h if never checked)
             const since = cp.lastChecked ? new Date(cp.lastChecked) : new Date(Date.now() - 24*60*60*1000);
@@ -509,64 +558,110 @@ setInterval(async () => {
             );
             logger.info(`[PCN Automation] Processing ${events.length} events for car park ${siteId} since ${since.toISOString()}`);
             
-            // Process each event
             for (const event of events) {
-                for (const rule of rules) {
-                    // Check if event violates rule
-                    let violated = false;
-                    let reason = null;
-                    
-                    // Rule violation checks here...
-                    
-                    if (violated) {
-                        // Check if PCN already exists for this event/rule
-                        const existing = await conn.query(
-                            'SELECT id FROM pcns WHERE siteId = ? AND VRM = ? AND ruleId = ? AND issueTime = ?',
-                            [siteId, event.VRM, rule.id, event.exitTime]
+                // Skip if VRM is invalid
+                if (!isValidVRM(event.VRM)) {
+                    logger.info(`[PCN Automation] Skipping event with invalid VRM: ${event.VRM}`);
+                    continue;
+                }
+
+                // Skip if event already has a PCN
+                const [existingPCN] = await conn.query(
+                    'SELECT * FROM pcns WHERE eventId = ?',
+                    [event.id]
+                );
+                if (existingPCN) continue;
+                
+                // Check rules based on car park type
+                if (carpark.carParkType === 'private') {
+                    // For private car parks, whitelist is primary
+                    const whitelistRule = rules.find(r => r.ruleType === 'whitelist');
+                    if (whitelistRule) {
+                        const [whitelisted] = await conn.query(
+                            'SELECT * FROM whitelist WHERE carParkId = ? AND VRM = ? AND active = true',
+                            [siteId, event.VRM]
                         );
-                        if (existing.length) {
-                            console.log(`[PCN Automation] PCN already exists for event ${event.id}, rule ${rule.id}`);
-                            continue;
+                        if (!whitelisted) {
+                            // Not whitelisted - issue PCN after grace period
+                            const graceEnd = new Date(event.entryTime.getTime() + (whitelistRule.gracePeriodMinutes || grace) * 60000);
+                            if (event.exitTime > graceEnd) {
+                                await createPCN(conn, {
+                                    siteId,
+                                    eventId: event.id,
+                                    ruleId: whitelistRule.id,
+                                    VRM: event.VRM,
+                                    reason: `Vehicle not on whitelist for ${carpark.name}`
+                                });
+                                continue; // Skip other rules for private car parks
+                            }
+                        }
+                    }
+                } else {
+                    // For public car parks, check all applicable rules
+                    for (const rule of rules) {
+                        let shouldIssuePCN = false;
+                        let reason = '';
+                        
+                        switch (rule.ruleType) {
+                            case 'time_limit':
+                                if (rule.maxDurationMinutes && event.durationMinutes > rule.maxDurationMinutes) {
+                                    shouldIssuePCN = true;
+                                    reason = `Exceeded maximum stay of ${rule.maxDurationMinutes} minutes`;
+                                }
+                                break;
+                                
+                            case 'payment':
+                                if (rule.requiresPayment) {
+                                    const [payment] = await conn.query(
+                                        'SELECT * FROM payments WHERE eventId = ?',
+                                        [event.id]
+                                    );
+                                    if (!payment) {
+                                        shouldIssuePCN = true;
+                                        reason = 'Payment required but not made';
+                                    }
+                                }
+                                break;
+                                
+                            case 'registration':
+                                if (rule.requiresRegistration) {
+                                    const [registration] = await conn.query(
+                                        'SELECT * FROM registrations WHERE eventId = ?',
+                                        [event.id]
+                                    );
+                                    if (!registration) {
+                                        shouldIssuePCN = true;
+                                        reason = 'Registration required but not completed';
+                                    }
+                                }
+                                break;
+                                
+                            case 'free_period':
+                                if (rule.freePeriodMinutes && event.durationMinutes > rule.freePeriodMinutes) {
+                                    if (rule.requiresPayment) {
+                                        const [payment] = await conn.query(
+                                            'SELECT * FROM payments WHERE eventId = ?',
+                                            [event.id]
+                                        );
+                                        if (!payment) {
+                                            shouldIssuePCN = true;
+                                            reason = `Exceeded free period of ${rule.freePeriodMinutes} minutes without payment`;
+                                        }
+                                    }
+                                }
+                                break;
                         }
                         
-                        // Generate PCN
-                        const dueDate = new Date();
-                        dueDate.setDate(dueDate.getDate() + 28); // 28 days to pay
-                        
-                        const [pcn] = await conn.query(
-                            `INSERT INTO pcns (
-                                siteId, VRM, ruleId, eventId, issueTime, dueDate, 
-                                amount, reason, status
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'issued')`,
-                            [
-                                siteId, event.VRM, rule.id, event.id, event.exitTime,
-                                dueDate, rule.pcnAmount, reason || rule.pcnReason
-                            ]
-                        );
-                        
-                        console.log(`[PCN Automation] Generated PCN #${pcn.insertId} for event ${event.id}, rule ${rule.id}, VRM ${event.VRM}`);
-                        
-                        // Log PCN generation
-                        await conn.query(
-                            `INSERT INTO pcn_audit_log (
-                                pcnId, eventId, ruleId, siteId, action, message
-                            ) VALUES (?, ?, ?, ?, 'issued', ?)`,
-                            [pcn.insertId, event.id, rule.id, siteId, JSON.stringify({
-                                ruleId: rule.id,
-                                eventId: event.id,
-                                reason: reason || rule.pcnReason,
-                                amount: rule.pcnAmount,
-                                dueDate: dueDate
-                            })]
-                        );
-                        
-                        // Send notifications if enabled
-                        if (rule.notifyOnIssue && cp.notifyEmails) {
-                            const emails = cp.notifyEmails.split(',').map(e => e.trim());
-                            console.log(`[PCN Automation] Sending notifications to ${emails.length} recipients for PCN #${pcn.insertId}`);
-                            for (const email of emails) {
-                                // TODO: Implement actual email sending
-                                console.log(`[PCN Automation] Would send PCN notification to ${email} for PCN #${pcn.insertId}`);
+                        if (shouldIssuePCN) {
+                            const graceEnd = new Date(event.entryTime.getTime() + (rule.gracePeriodMinutes || grace) * 60000);
+                            if (event.exitTime > graceEnd) {
+                                await createPCN(conn, {
+                                    siteId,
+                                    eventId: event.id,
+                                    ruleId: rule.id,
+                                    VRM: event.VRM,
+                                    reason
+                                });
                             }
                         }
                     }
@@ -578,14 +673,38 @@ setInterval(async () => {
                 'UPDATE pcn_automation_settings SET lastChecked = NOW() WHERE siteId = ?',
                 [siteId]
             );
-            console.log(`[PCN Automation] Completed processing for car park ${siteId}`);
         }
     } catch (err) {
-        console.error('[PCN Automation] Error in PCN automation job:', err);
+        logger.error('[PCN Automation] Error in job:', err);
     } finally {
         if (conn) conn.release();
     }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000); // Run every 5 minutes
+
+// Helper function to create a PCN
+async function createPCN(conn, { siteId, eventId, ruleId, VRM, reason }) {
+    try {
+        // Get the rule details
+        const [rule] = await conn.query('SELECT * FROM rules WHERE id = ?', [ruleId]);
+        // Set default values
+        const defaultAmount = rule?.pcnAmount || 150.00;
+        const defaultReason = rule?.contraventionDetails || (rule?.ruleType === 'whitelist' ? 'Without a valid permit or authority' : 'Without valid pay & display ticket');
+        // Insert PCN with status 'possible', no reference number yet
+        const [result] = await conn.query(
+            `INSERT INTO pcns (siteId, eventId, ruleId, VRM, issueTime, issueDate, dueDate, amount, reason, status, notes)
+             VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possible', ?)`,
+            [siteId, eventId, ruleId, VRM, defaultAmount, defaultReason, reason]
+        );
+        // Log the PCN creation
+        await conn.query(
+            'INSERT INTO pcn_audit_log (pcnId, eventId, ruleId, siteId, action, message) VALUES (?, ?, ?, ?, ?, ?)',
+            [result.insertId, eventId, ruleId, siteId, 'created', reason]
+        );
+        logger.info(`[PCN Automation] Created PCN ${result.insertId} for ${VRM} at ${siteId}: ${reason}`);
+    } catch (err) {
+        logger.error('[PCN Automation] Error creating PCN:', err);
+    }
+}
 
 // Admin navigation
 app.get('/admin', (req, res) => {
@@ -684,6 +803,7 @@ app.get('/admin/cameras', async (req, res) => {
                 c.direction,
                 c.entryDirection,
                 c.exitDirection,
+                c.admin_url,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -709,7 +829,7 @@ app.get('/admin/cameras', async (req, res) => {
 app.post('/admin/cameras/edit', async (req, res) => {
     let conn;
     try {
-        const { originalName, name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
+        const { originalName, name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url } = req.body;
         conn = await pool.getConnection();
         
         // Check if another camera has this name (excluding the current camera)
@@ -734,16 +854,18 @@ app.post('/admin/cameras/edit', async (req, res) => {
                 isExitTrigger = ?, 
                 direction = ?,
                 entryDirection = ?,
-                exitDirection = ?
+                exitDirection = ?,
+                admin_url = ?
             WHERE name = ?
         `, [
             name,
-            carParkId || null,  // Keep as string
+            carParkId || null,
             isEntry,
             isExit,
             direction,
             entryDirection,
             exitDirection,
+            admin_url,
             originalName
         ]);
         
@@ -757,6 +879,7 @@ app.post('/admin/cameras/edit', async (req, res) => {
                 c.direction,
                 c.entryDirection,
                 c.exitDirection,
+                c.admin_url,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -767,7 +890,7 @@ app.post('/admin/cameras/edit', async (req, res) => {
             success: true,
             camera: updatedCamera[0]
         });
-        console.log(`[CAMERA] Edited: originalName=${originalName}, newName=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, at ${new Date().toISOString()}`);
+        console.log(`[CAMERA] Edited: originalName=${originalName}, newName=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, admin_url=${admin_url}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error updating camera:', err);
         res.status(500).json({ error: err.message });
@@ -779,7 +902,7 @@ app.post('/admin/cameras/edit', async (req, res) => {
 app.post('/admin/cameras/add', async (req, res) => {
     let conn;
     try {
-        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection } = req.body;
+        const { name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url } = req.body;
         conn = await pool.getConnection();
         
         // Check if camera with this name already exists
@@ -795,9 +918,9 @@ app.post('/admin/cameras/add', async (req, res) => {
         
         // Insert new camera
         await conn.query(`
-            INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [name, carParkId || null, isEntry, isExit, direction, entryDirection, exitDirection]);
+            INSERT INTO cameras (name, carParkId, isEntryTrigger, isExitTrigger, direction, entryDirection, exitDirection, admin_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [name, carParkId || null, isEntry, isExit, direction, entryDirection, exitDirection, admin_url]);
         
         // Get the newly created camera with car park info
         const newCamera = await conn.query(`
@@ -809,6 +932,7 @@ app.post('/admin/cameras/add', async (req, res) => {
                 c.direction,
                 c.entryDirection,
                 c.exitDirection,
+                c.admin_url,
                 cp.name as carparkName
             FROM cameras c
             LEFT JOIN carparks cp ON c.carParkId = cp.siteId
@@ -819,7 +943,7 @@ app.post('/admin/cameras/add', async (req, res) => {
             success: true,
             camera: newCamera[0]
         });
-        console.log(`[CAMERA] Added: name=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, at ${new Date().toISOString()}`);
+        console.log(`[CAMERA] Added: name=${name}, carParkId=${carParkId}, isEntryTrigger=${isEntry}, isExitTrigger=${isExit}, direction=${direction}, entryDirection=${entryDirection}, exitDirection=${exitDirection}, admin_url=${admin_url}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error adding camera:', err);
         res.status(500).json({ error: err.message });
@@ -831,19 +955,26 @@ app.post('/admin/cameras/add', async (req, res) => {
 app.post('/admin/cameras/delete', async (req, res) => {
     let conn;
     try {
-        const { name } = req.body;
+        const { id } = req.body;
         conn = await pool.getConnection();
         
+        // Get camera name before deleting
+        const [camera] = await conn.query('SELECT name FROM cameras WHERE id = ?', [id]);
+        if (!camera) {
+            res.status(404).json({ error: 'Camera not found' });
+            return;
+        }
+        
         // Check if camera has any detections
-        const detections = await conn.query('SELECT id FROM anpr_detections WHERE cameraID = ?', [name]);
+        const detections = await conn.query('SELECT id FROM anpr_detections WHERE cameraID = ?', [camera.name]);
         if (detections.length > 0) {
             res.status(400).json({ error: 'Cannot delete camera: it has existing detections' });
             return;
         }
         
-        await conn.query('DELETE FROM cameras WHERE name = ?', [name]);
+        await conn.query('DELETE FROM cameras WHERE id = ?', [id]);
         res.json({ success: true });
-        console.log(`[CAMERA] Deleted: name=${name}, at ${new Date().toISOString()}`);
+        console.log(`[CAMERA] Deleted: id=${id}, name=${camera.name}, at ${new Date().toISOString()}`);
     } catch (err) {
         console.error('Error deleting camera:', err);
         res.status(500).json({ error: err.message });

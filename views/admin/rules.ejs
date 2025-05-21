@@ -27,9 +27,14 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>Parking Rules for <%= carpark.name %></span>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRuleModal">
-                Add Rule
-            </button>
+            <div>
+                <button type="button" class="btn btn-success me-2" onclick="generatePossiblePCNs()">
+                    Generate Possible PCNs
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRuleModal">
+                    Add Rule
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <form action="/admin/rules/<%= carpark.siteId %>/add" method="POST" class="mb-4">
@@ -74,10 +79,13 @@
                         <tr>
                             <th>Name</th>
                             <th>Type</th>
+                            <th>Priority</th>
                             <th>Time Limits</th>
                             <th>Active Hours</th>
-                            <th>Days</th>
+                            <th>Active Days</th>
                             <th>Status</th>
+                            <th>Notes</th>
+                            <th>Contravention Details</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -91,49 +99,39 @@
                                     <% } %>
                                 </td>
                                 <td><%= rule.ruleType %></td>
+                                <td><%= rule.priority || 0 %></td>
                                 <td>
-                                    <% if (rule.ruleType === 'whitelist') { %>
-                                        <% const whitelistCount = rule.whitelistCount || 0; %>
-                                        <%= whitelistCount %> vehicles
-                                    <% } else { %>
-                                        <% if (rule.maxDurationMinutes) { %>
-                                            Max: <%= Math.floor(rule.maxDurationMinutes / 60) %>h <%= rule.maxDurationMinutes % 60 %>m<br>
-                                        <% } %>
-                                        <% if (rule.maxDailyDurationMinutes) { %>
-                                            Daily: <%= Math.floor(rule.maxDailyDurationMinutes / 60) %>h <%= rule.maxDailyDurationMinutes % 60 %>m<br>
-                                        <% } %>
-                                        <% if (rule.maxWeeklyDurationMinutes) { %>
-                                            Weekly: <%= Math.floor(rule.maxWeeklyDurationMinutes / 60) %>h <%= rule.maxWeeklyDurationMinutes % 60 %>m<br>
-                                        <% } %>
-                                        <% if (rule.maxMonthlyDurationMinutes) { %>
-                                            Monthly: <%= Math.floor(rule.maxMonthlyDurationMinutes / 60) %>h <%= rule.maxMonthlyDurationMinutes % 60 %>m
-                                        <% } %>
+                                    <% if (rule.maxDurationMinutes) { %>
+                                        Max: <%= Math.floor(rule.maxDurationMinutes / 60) %>h <%= rule.maxDurationMinutes % 60 %>m<br>
+                                    <% } %>
+                                    <% if (rule.maxDailyDurationMinutes) { %>
+                                        Daily: <%= Math.floor(rule.maxDailyDurationMinutes / 60) %>h <%= rule.maxDailyDurationMinutes % 60 %>m<br>
+                                    <% } %>
+                                    <% if (rule.maxWeeklyDurationMinutes) { %>
+                                        Weekly: <%= Math.floor(rule.maxWeeklyDurationMinutes / 60) %>h <%= rule.maxWeeklyDurationMinutes % 60 %>m<br>
+                                    <% } %>
+                                    <% if (rule.maxMonthlyDurationMinutes) { %>
+                                        Monthly: <%= Math.floor(rule.maxMonthlyDurationMinutes / 60) %>h <%= rule.maxMonthlyDurationMinutes % 60 %>m
                                     <% } %>
                                 </td>
                                 <td>
-                                    <% if (rule.startTime && rule.endTime) { %>
-                                        <%= rule.startTime.substring(0, 5) %> - <%= rule.endTime.substring(0, 5) %>
+                                    <% if (rule.activeStartTime && rule.activeEndTime) { %>
+                                        <%= rule.activeStartTime.substring(0, 5) %> - <%= rule.activeEndTime.substring(0, 5) %>
                                     <% } else { %>
                                         24/7
                                     <% } %>
                                 </td>
-                                <td>
-                                    <% if (rule.daysOfWeek) { %>
-                                        <%= rule.daysOfWeek.split(',').map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][parseInt(d)-1]).join(', ') %>
-                                    <% } else { %>
-                                        All days
-                                    <% } %>
-                                </td>
+                                <td><%= rule.activeDays || 'All' %></td>
                                 <td>
                                     <span class="badge <%= rule.isActive ? 'bg-success' : 'bg-danger' %>">
                                         <%= rule.isActive ? 'Active' : 'Inactive' %>
                                     </span>
                                 </td>
+                                <td><%= rule.notes || '' %></td>
+                                <td><%= rule.contraventionDetails || '' %></td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary btn-icon" 
-                                            onclick="editRule('<%= rule.id %>', '<%= rule.name %>', '<%= rule.ruleType %>', '<%= rule.maxDurationMinutes %>', '<%= rule.maxDailyDurationMinutes %>', '<%= rule.maxWeeklyDurationMinutes %>', '<%= rule.maxMonthlyDurationMinutes %>', '<%= rule.startTime %>', '<%= rule.endTime %>', '<%= rule.daysOfWeek %>', <%= rule.isActive %>, <%= rule.autoEnforce || false %>, <%= rule.pcnAmount || 0 %>, '<%= rule.pcnReason || "" %>', <%= rule.notifyOnIssue || false %>, <%= rule.notifyOnAppeal || false %>, <%= rule.notifyOnPayment || false %>)">
-                                        ✏️
-                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary btn-icon"
+                                        onclick="editRule(<%= JSON.stringify(rule.id || null) %>,<%= JSON.stringify(rule.name || '') %>,<%= JSON.stringify(rule.ruleType || '') %>,<%= JSON.stringify(rule.maxDurationMinutes || null) %>,<%= JSON.stringify(rule.maxDailyDurationMinutes || null) %>,<%= JSON.stringify(rule.maxWeeklyDurationMinutes || null) %>,<%= JSON.stringify(rule.maxMonthlyDurationMinutes || null) %>,<%= JSON.stringify(rule.activeStartTime || '') %>,<%= JSON.stringify(rule.activeEndTime || '') %>,<%= JSON.stringify(rule.activeDays || 'All') %>,<%= JSON.stringify(rule.isActive || false) %>,<%= JSON.stringify(rule.autoEnforce || false) %>,<%= JSON.stringify(rule.pcnAmount || 0) %>,<%= JSON.stringify(rule.pcnReason || '') %>,<%= JSON.stringify(rule.notifyOnIssue || false) %>,<%= JSON.stringify(rule.notifyOnAppeal || false) %>,<%= JSON.stringify(rule.notifyOnPayment || false) %>,<%= JSON.stringify(rule.priority || 0) %>,<%= JSON.stringify(rule.notes || '') %>,<%= JSON.stringify(rule.contraventionDetails || '') %>)">✏️</button>
                                     <button class="btn btn-sm btn-outline-info btn-icon" 
                                             onclick="manageWhitelist('<%= rule.id %>')">
                                         👥
@@ -171,108 +169,94 @@
                             </div>
                             <div class="mb-3">
                                 <label for="ruleType" class="form-label">Rule Type</label>
-                                <select class="form-select" id="ruleType" name="ruleType" required>
+                                <select class="form-select" id="ruleType" name="ruleType" required onchange="updateRuleFields()">
                                     <option value="time_limit">Time Limit</option>
                                     <option value="whitelist">Whitelist</option>
-                                    <option value="payment">Payment</option>
+                                    <option value="payment">Payment Required</option>
+                                    <option value="registration">Registration Required</option>
+                                    <option value="free_period">Free Period</option>
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label for="description" class="form-label">Description</label>
                                 <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <!-- PCN Automation Settings -->
-                            <div class="card mb-3">
-                                <div class="card-header">
-                                    <h6 class="mb-0">PCN Automation</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="autoEnforce" name="autoEnforce">
-                                            <label class="form-check-label" for="autoEnforce">
-                                                Automatically enforce this rule
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="pcnAmount" class="form-label">PCN Amount (£)</label>
-                                        <input type="number" class="form-control" id="pcnAmount" name="pcnAmount" step="0.01" min="0">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="pcnReason" class="form-label">Default PCN Reason</label>
-                                        <input type="text" class="form-control" id="pcnReason" name="pcnReason">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Notifications</label>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="notifyOnIssue" name="notifyOnIssue">
-                                            <label class="form-check-label" for="notifyOnIssue">
-                                                Notify on PCN issue
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="notifyOnAppeal" name="notifyOnAppeal">
-                                            <label class="form-check-label" for="notifyOnAppeal">
-                                                Notify on appeal
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="notifyOnPayment" name="notifyOnPayment">
-                                            <label class="form-check-label" for="notifyOnPayment">
-                                                Notify on payment
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Time Limits (minutes)</label>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Max Stay</span>
-                                    <input type="number" class="form-control" name="maxDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Daily</span>
-                                    <input type="number" class="form-control" name="maxDailyDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Weekly</span>
-                                    <input type="number" class="form-control" name="maxWeeklyDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group">
-                                    <span class="input-group-text">Monthly</span>
-                                    <input type="number" class="form-control" name="maxMonthlyDurationMinutes" min="0">
-                                </div>
+                                <label for="priority" class="form-label">Priority <span title="Lower numbers = higher priority. Used to resolve rule conflicts." style="cursor: help;">🛈</span></label>
+                                <input type="number" class="form-control" id="priority" name="priority" min="0" value="0">
+                            </div>
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Notes <span title="Optional notes for this rule." style="cursor: help;">🛈</span></label>
+                                <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="contraventionDetails" class="form-label">Contravention Details</label>
+                                <input type="text" class="form-control" id="contraventionDetails" name="contraventionDetails">
                             </div>
                         </div>
                         <div class="col-md-6">
+                            <!-- Dynamic rule fields based on type -->
+                            <div id="timeLimitFields" class="rule-fields">
+                                <div class="mb-3">
+                                    <label for="maxDurationMinutes" class="form-label">Max Duration (minutes)</label>
+                                    <input type="number" class="form-control" id="maxDurationMinutes" name="maxDurationMinutes">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="maxDailyDurationMinutes" class="form-label">Max Daily Duration (minutes)</label>
+                                    <input type="number" class="form-control" id="maxDailyDurationMinutes" name="maxDailyDurationMinutes">
+                                </div>
+                            </div>
+                            <div id="whitelistFields" class="rule-fields" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="gracePeriodMinutes" class="form-label">Grace Period (minutes)</label>
+                                    <input type="number" class="form-control" id="gracePeriodMinutes" name="gracePeriodMinutes" value="0">
+                                </div>
+                            </div>
+                            <div id="paymentFields" class="rule-fields" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="requiresPayment" class="form-label">Payment Required</label>
+                                    <input type="checkbox" class="form-check-input" id="requiresPayment" name="requiresPayment" checked>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gracePeriodMinutes" class="form-label">Grace Period (minutes)</label>
+                                    <input type="number" class="form-control" id="gracePeriodMinutes" name="gracePeriodMinutes" value="0">
+                                </div>
+                            </div>
+                            <div id="registrationFields" class="rule-fields" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="requiresRegistration" class="form-label">Registration Required</label>
+                                    <input type="checkbox" class="form-check-input" id="requiresRegistration" name="requiresRegistration" checked>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gracePeriodMinutes" class="form-label">Grace Period (minutes)</label>
+                                    <input type="number" class="form-control" id="gracePeriodMinutes" name="gracePeriodMinutes" value="0">
+                                </div>
+                            </div>
+                            <div id="freePeriodFields" class="rule-fields" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="freePeriodMinutes" class="form-label">Free Period (minutes)</label>
+                                    <input type="number" class="form-control" id="freePeriodMinutes" name="freePeriodMinutes">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="requiresPayment" class="form-label">Payment Required After Free Period</label>
+                                    <input type="checkbox" class="form-check-input" id="requiresPayment" name="requiresPayment">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gracePeriodMinutes" class="form-label">Grace Period (minutes)</label>
+                                    <input type="number" class="form-control" id="gracePeriodMinutes" name="gracePeriodMinutes" value="0">
+                                </div>
+                            </div>
                             <div class="mb-3">
-                                <label class="form-label">Active Hours</label>
+                                <label class="form-label">Active Hours <span title="Rule only applies during these hours (optional)." style="cursor: help;">🛈</span></label>
                                 <div class="input-group">
-                                    <input type="time" class="form-control" name="startTime">
+                                    <input type="time" class="form-control" name="activeStartTime">
                                     <span class="input-group-text">to</span>
-                                    <input type="time" class="form-control" name="endTime">
+                                    <input type="time" class="form-control" name="activeEndTime">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Active Days</label>
-                                <div class="btn-group w-100" role="group">
-                                    <% ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((day, index) => { %>
-                                        <input type="checkbox" class="btn-check" name="daysOfWeek" id="day<%= index %>" value="<%= index + 1 %>">
-                                        <label class="btn btn-outline-primary" for="day<%= index %>"><%= day %></label>
-                                    <% }); %>
-                                </div>
+                                <label class="form-label">Active Days <span title="Rule only applies on these days (optional)." style="cursor: help;">🛈</span></label>
+                                <input type="text" class="form-control" name="activeDays" placeholder="e.g. Mon,Tue,Wed or All">
                             </div>
                         </div>
                     </div>
@@ -315,107 +299,32 @@
                                 <label for="editDescription" class="form-label">Description</label>
                                 <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <!-- PCN Automation Settings -->
-                            <div class="card mb-3">
-                                <div class="card-header">
-                                    <h6 class="mb-0">PCN Automation</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="editAutoEnforce" name="autoEnforce">
-                                            <label class="form-check-label" for="editAutoEnforce">
-                                                Automatically enforce this rule
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="editPcnAmount" class="form-label">PCN Amount (£)</label>
-                                        <input type="number" class="form-control" id="editPcnAmount" name="pcnAmount" step="0.01" min="0">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="editPcnReason" class="form-label">Default PCN Reason</label>
-                                        <input type="text" class="form-control" id="editPcnReason" name="pcnReason">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Notifications</label>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="editNotifyOnIssue" name="notifyOnIssue">
-                                            <label class="form-check-label" for="editNotifyOnIssue">
-                                                Notify on PCN issue
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="editNotifyOnAppeal" name="notifyOnAppeal">
-                                            <label class="form-check-label" for="editNotifyOnAppeal">
-                                                Notify on appeal
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="editNotifyOnPayment" name="notifyOnPayment">
-                                            <label class="form-check-label" for="editNotifyOnPayment">
-                                                Notify on payment
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Time Limits (minutes)</label>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Max Stay</span>
-                                    <input type="number" class="form-control" id="editMaxDurationMinutes" name="maxDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Daily</span>
-                                    <input type="number" class="form-control" id="editMaxDailyDurationMinutes" name="maxDailyDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group mb-2">
-                                    <span class="input-group-text">Weekly</span>
-                                    <input type="number" class="form-control" id="editMaxWeeklyDurationMinutes" name="maxWeeklyDurationMinutes" min="0">
-                                </div>
-                                <div class="input-group">
-                                    <span class="input-group-text">Monthly</span>
-                                    <input type="number" class="form-control" id="editMaxMonthlyDurationMinutes" name="maxMonthlyDurationMinutes" min="0">
-                                </div>
+                                <label for="editPriority" class="form-label">Priority <span title="Lower numbers = higher priority. Used to resolve rule conflicts." style="cursor: help;">🛈</span></label>
+                                <input type="number" class="form-control" id="editPriority" name="priority" min="0" value="0">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editNotes" class="form-label">Notes <span title="Optional notes for this rule." style="cursor: help;">🛈</span></label>
+                                <textarea class="form-control" id="editNotes" name="notes" rows="2"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editContraventionDetails" class="form-label">Contravention Details</label>
+                                <input type="text" class="form-control" id="editContraventionDetails" name="contraventionDetails">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Active Hours</label>
+                                <label class="form-label">Active Hours <span title="Rule only applies during these hours (optional)." style="cursor: help;">🛈</span></label>
                                 <div class="input-group">
-                                    <input type="time" class="form-control" id="editStartTime" name="startTime">
+                                    <input type="time" class="form-control" id="editActiveStartTime" name="activeStartTime">
                                     <span class="input-group-text">to</span>
-                                    <input type="time" class="form-control" id="editEndTime" name="endTime">
+                                    <input type="time" class="form-control" id="editActiveEndTime" name="activeEndTime">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Active Days</label>
-                                <div class="btn-group w-100" role="group">
-                                    <% ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((day, index) => { %>
-                                        <input type="checkbox" class="btn-check" name="daysOfWeek" id="editDay<%= index %>" value="<%= index + 1 %>">
-                                        <label class="btn btn-outline-primary" for="editDay<%= index %>"><%= day %></label>
-                                    <% }); %>
-                                </div>
+                                <label class="form-label">Active Days <span title="Rule only applies on these days (optional)." style="cursor: help;">🛈</span></label>
+                                <input type="text" class="form-control" id="editActiveDays" name="activeDays" placeholder="e.g. Mon,Tue,Wed or All">
                             </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="editIsActive" name="isActive" checked>
-                            <label class="form-check-label" for="editIsActive">
-                                Rule is active
-                            </label>
                         </div>
                     </div>
                 </div>
@@ -451,37 +360,19 @@
 </div>
 
 <script>
-function editRule(id, name, ruleType, maxDuration, maxDaily, maxWeekly, maxMonthly, startTime, endTime, daysOfWeek, isActive, autoEnforce, pcnAmount, pcnReason, notifyOnIssue, notifyOnAppeal, notifyOnPayment) {
+function editRule(id, name, ruleType, maxDuration, maxDaily, maxWeekly, maxMonthly, activeStartTime, activeEndTime, activeDays, isActive, autoEnforce, pcnAmount, pcnReason, notifyOnIssue, notifyOnAppeal, notifyOnPayment, priority, notes, contraventionDetails) {
     document.getElementById('editRuleId').value = id;
     document.getElementById('editName').value = name;
     document.getElementById('editRuleType').value = ruleType;
-    document.getElementById('editMaxDurationMinutes').value = maxDuration;
-    document.getElementById('editMaxDailyDurationMinutes').value = maxDaily;
-    document.getElementById('editMaxWeeklyDurationMinutes').value = maxWeekly;
-    document.getElementById('editMaxMonthlyDurationMinutes').value = maxMonthly;
-    document.getElementById('editStartTime').value = startTime;
-    document.getElementById('editEndTime').value = endTime;
-    document.getElementById('editIsActive').checked = isActive;
-    document.getElementById('editAutoEnforce').checked = autoEnforce;
-    document.getElementById('editPcnAmount').value = pcnAmount;
-    document.getElementById('editPcnReason').value = pcnReason;
-    document.getElementById('editNotifyOnIssue').checked = notifyOnIssue;
-    document.getElementById('editNotifyOnAppeal').checked = notifyOnAppeal;
-    document.getElementById('editNotifyOnPayment').checked = notifyOnPayment;
-    
-    // Reset all day checkboxes
-    document.querySelectorAll('input[name="daysOfWeek"]').forEach(checkbox => {
-        checkbox.checked = false;
-    });
-    
-    // Set the correct days
-    if (daysOfWeek) {
-        daysOfWeek.split(',').forEach(day => {
-            const checkbox = document.getElementById('editDay' + (parseInt(day) - 1));
-            if (checkbox) checkbox.checked = true;
-        });
-    }
-    
+    document.getElementById('editDescription').value = '';
+    document.getElementById('editPriority').value = priority || 0;
+    document.getElementById('editNotes').value = notes || '';
+    document.getElementById('editActiveStartTime').value = activeStartTime || '';
+    document.getElementById('editActiveEndTime').value = activeEndTime || '';
+    document.getElementById('editActiveDays').value = activeDays || 'All';
+    document.getElementById('editContraventionDetails').value = contraventionDetails || '';
+    // Populate other fields as needed
+    // ...
     new bootstrap.Modal(document.getElementById('editRuleModal')).show();
 }
 
@@ -493,4 +384,46 @@ function deleteRule(id) {
 function manageWhitelist(ruleId) {
     window.location.href = `/admin/rules/${ruleId}/whitelist`;
 }
+
+function updateRuleFields() {
+    const ruleType = document.getElementById('ruleType').value;
+    document.querySelectorAll('.rule-fields').forEach(field => field.style.display = 'none');
+    document.getElementById(ruleType + 'Fields').style.display = 'block';
+}
+
+function updateRuleTypeHelp() {
+    const carParkType = document.getElementById('carParkType').value;
+    const helpText = carParkType === 'private' 
+        ? 'Private: Only whitelisted vehicles may park. PCN issued if not on whitelist (after optional grace period).'
+        : 'Public: Public may park. Can set free period, payment/registration, overstay, and grace period rules.';
+    document.getElementById('carParkTypeHelp').textContent = helpText;
+}
+
+async function generatePossiblePCNs() {
+    try {
+        const response = await fetch(`/admin/rules/<%= carpark.siteId %>/generate-pcns`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`Generated ${result.pcnsGenerated} possible PCNs for ${result.eventsChecked} events.`);
+        } else {
+            alert('Error generating PCNs: ' + result.error);
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error generating PCNs. Please try again.');
+    }
+}
+
+// Initialize rule fields on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateRuleFields();
+    updateRuleTypeHelp();
+});
 </script> 

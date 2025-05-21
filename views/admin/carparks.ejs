@@ -127,6 +127,10 @@
                                                     onclick="window.location.href='/admin/carparks/<%= cp.siteId %>/pcns'">
                                                 🚨
                                             </button>
+                                            <button class="btn btn-sm btn-outline-success btn-icon" 
+                                                    onclick="generatePCNs('<%= cp.siteId %>')">
+                                                🎯
+                                            </button>
                                             <button class="btn btn-sm btn-outline-secondary btn-icon" 
                                                     onclick="editCarPark('<%= cp.siteId %>', '<%= cp.name %>', '<%= cp.throughTrafficMinutes %>', '<%= cp.minEventDurationMinutes || 5 %>')">
                                                 ✏️
@@ -172,6 +176,13 @@
                             <label for="minEventDurationMinutes" class="form-label">Min Event Duration (minutes)</label>
                             <input type="number" class="form-control" id="minEventDurationMinutes" name="minEventDurationMinutes" value="5" min="1" required>
                         </div>
+                        <div class="mb-3">
+                            <label for="carParkType" class="form-label">Car Park Type</label>
+                            <select class="form-select" id="carParkType" name="carParkType" required>
+                                <option value="public">Public (open to public, may have free/paid/registration rules)</option>
+                                <option value="private">Private (whitelist only, PCN if not whitelisted)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -208,6 +219,13 @@
                         <div class="mb-3">
                             <label for="minEventDurationMinutes" class="form-label">Min Event Duration (minutes)</label>
                             <input type="number" class="form-control" id="minEventDurationMinutes" name="minEventDurationMinutes" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editCarParkType" class="form-label">Car Park Type</label>
+                            <select class="form-select" id="editCarParkType" name="carParkType" required>
+                                <option value="public">Public (open to public, may have free/paid/registration rules)</option>
+                                <option value="private">Private (whitelist only, PCN if not whitelisted)</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -294,13 +312,40 @@
                     name: document.getElementById('name')?.value,
                     siteId: document.getElementById('siteId')?.value,
                     throughTrafficMinutes: document.getElementById('throughTrafficMinutes')?.value,
-                    minEventDurationMinutes: document.getElementById('minEventDurationMinutes')?.value
+                    minEventDurationMinutes: document.getElementById('minEventDurationMinutes')?.value,
+                    carParkType: document.getElementById('carParkType')?.value
                 })
             },
             confirmMsg: 'Add this car park?',
             successMsg: 'Car park added.',
             reloadOnSuccess: true
         });
+
+        async function generatePCNs(siteId) {
+            if (!confirm('Generate possible PCNs for this car park?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/rules/${siteId}/generate-pcns`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Generated ${result.pcnsGenerated} possible PCNs for ${result.eventsChecked} events.`);
+                } else {
+                    alert('Error generating PCNs: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Error generating PCNs. Please try again.');
+            }
+        }
     </script>
 </body>
 </html> 
