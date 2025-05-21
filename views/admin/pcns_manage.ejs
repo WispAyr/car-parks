@@ -17,6 +17,13 @@
             <button id="deleteAllPcnsBtn" class="btn btn-danger ms-2"><i class="bi bi-trash"></i> Delete All PCNs</button>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4">PCN Management</h1>
+        <button id="recheckBtn" class="btn btn-warning" onclick="recheckPCNs()">
+            <i class="bi bi-arrow-repeat"></i> Re-check & Clean PCNs
+        </button>
+    </div>
+    <div id="recheckResult" class="alert alert-info d-none"></div>
     <div class="mb-3">
         <div class="btn-group" role="group" aria-label="Status Filter">
             <button type="button" class="btn btn-outline-primary active" data-status="all">All</button>
@@ -55,7 +62,7 @@
                                 -
                             <% } %>
                         </td>
-                        <td><%= p.issueTime ? new Date(p.issueTime).toLocaleString() : '-' %></td>
+                        <td><%= p.issueTime ? formatUKTime(p.issueTime) : '-' %></td>
                         <td>
                             <span class="badge bg-<%= 
                                 p.status === 'possible' ? 'warning' : 
@@ -254,6 +261,36 @@ $(document).ready(function() {
         }).always(function() { btn.prop('disabled', false); });
     });
 });
+
+function recheckPCNs() {
+    if (!confirm('Re-check all possible/issued PCNs and delete those that are now paid or whitelisted?')) return;
+    const btn = document.getElementById('recheckBtn');
+    btn.disabled = true;
+    fetch('/admin/pcns/recheck', { method: 'POST' })
+        .then(r => r.json())
+        .then(result => {
+            btn.disabled = false;
+            const alert = document.getElementById('recheckResult');
+            if (result.success) {
+                alert.textContent = `Deleted ${result.deleted} PCNs that are now paid or whitelisted.`;
+                alert.classList.remove('d-none', 'alert-danger');
+                alert.classList.add('alert-info');
+                setTimeout(() => { alert.classList.add('d-none'); }, 5000);
+                location.reload();
+            } else {
+                alert.textContent = 'Error: ' + (result.error || 'Unknown error');
+                alert.classList.remove('d-none', 'alert-info');
+                alert.classList.add('alert-danger');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            const alert = document.getElementById('recheckResult');
+            alert.textContent = 'Error: ' + err;
+            alert.classList.remove('d-none', 'alert-info');
+            alert.classList.add('alert-danger');
+        });
+}
 </script>
 </body>
 </html> 

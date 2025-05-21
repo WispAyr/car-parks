@@ -1,6 +1,7 @@
 const { transports, createLogger, format } = require('winston');
 const path = require('path');
 const Transport = require('winston-transport');
+const { DateTime } = require('luxon');
 
 // Define log levels
 const levels = {
@@ -67,4 +68,25 @@ logger.stream = {
     write: (message) => logger.http(message.trim()),
 };
 
-module.exports = logger; 
+function formatUKTime(dateInput) {
+    if (!dateInput) return '';
+    // Accepts Date, string, or timestamp
+    let dt;
+    if (dateInput instanceof Date) {
+        dt = DateTime.fromJSDate(dateInput, { zone: 'Europe/London' });
+    } else if (typeof dateInput === 'string') {
+        // Try to parse as SQL or ISO string
+        dt = DateTime.fromSQL(dateInput, { zone: 'Europe/London' });
+        if (!dt.isValid) dt = DateTime.fromISO(dateInput, { zone: 'Europe/London' });
+    } else if (typeof dateInput === 'number') {
+        dt = DateTime.fromMillis(dateInput, { zone: 'Europe/London' });
+    } else {
+        return '';
+    }
+    return dt.isValid ? dt.toFormat('yyyy-LL-dd HH:mm:ss') : '';
+}
+
+module.exports = {
+    logger,
+    formatUKTime,
+}; 

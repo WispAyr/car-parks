@@ -109,7 +109,7 @@
                         <tbody>
                             <% recentEvents.forEach(event => { %>
                                 <tr>
-                                    <td class="ps-4"><%= new Date(event.entryTime).toLocaleString() %></td>
+                                    <td class="ps-4"><%= formatUKTime(event.entryTime) %></td>
                                     <td><strong><%= event.VRM %></strong></td>
                                     <td><%= event.carParkName %></td>
                                     <td>

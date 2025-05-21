@@ -14,7 +14,7 @@ const { generateParkingEvents } = require('./eventGeneration');
 const pool = require('./dbPool');
 const { fetchWhitelistsFromMonday, getCachedWhitelists, isWhitelisted } = require('./mondayWhitelistService');
 const { v4: uuidv4 } = require('uuid');
-const logger = require('./utils/logger');
+const { logger, formatUKTime } = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -2989,3 +2989,33 @@ app.post('/admin/regenerate-events-for-vrm', async (req, res) => {
         if (conn) conn.release();
     }
 });
+
+// API endpoint to flag or unflag a detection
+app.post('/api/detections/:id/flag', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const detectionId = req.params.id;
+        const { flagType, isActive, description } = req.body;
+
+        // Remove existing flag of this type for this detection
+        await conn.query('DELETE FROM detection_flags WHERE detectionId = ? AND flagType = ?', [detectionId, flagType]);
+
+        if (isActive) {
+            // Add the flag
+            await conn.query(
+                'INSERT INTO detection_flags (detectionId, flagType, description) VALUES (?, ?, ?)',
+                [detectionId, flagType, description || null]
+            );
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error flagging detection:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+app.locals.formatUKTime = formatUKTime;

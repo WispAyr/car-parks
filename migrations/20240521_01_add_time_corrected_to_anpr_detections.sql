@@ -1,0 +1,1 @@
+ALTER TABLE anpr_detections ADD COLUMN time_corrected TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Set to 1 if timestamp has been corrected for UK time'; 

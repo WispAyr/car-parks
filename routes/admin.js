@@ -1565,8 +1565,6 @@ async function createPCN(conn, { siteId, eventId, ruleId, VRM, reason }) {
                 e.*,
                 ed.image1 as entryImage,
                 ed.image2 as entryImage2,
-                ed.image1_data as entryImageData,
-                ed.image2_data as entryImage2Data,
                 ed.direction as entryDirection,
                 ed.confidence as entryConfidence,
                 ed.tag as entryTag,
@@ -1574,8 +1572,6 @@ async function createPCN(conn, { siteId, eventId, ruleId, VRM, reason }) {
                 ed.country as entryCountry,
                 xd.image1 as exitImage,
                 xd.image2 as exitImage2,
-                xd.image1_data as exitImageData,
-                xd.image2_data as exitImage2Data,
                 xd.direction as exitDirection,
                 xd.confidence as exitConfidence,
                 xd.tag as exitTag,
@@ -1600,68 +1596,142 @@ async function createPCN(conn, { siteId, eventId, ruleId, VRM, reason }) {
         const defaultReason = rule?.contraventionDetails || 
             (rule?.ruleType === 'whitelist' ? 'Without a valid permit or authority' : 'Without valid pay & display ticket');
         
-        // Create evidence JSON
+        // Create evidence JSON (streamlined version with essential data only)
         const evidence = {
-            entryTime: eventDetails.entryTime,
-            exitTime: eventDetails.exitTime,
-            durationMinutes: eventDetails.durationMinutes,
-            entryImage: eventDetails.entryImage,
-            entryImage2: eventDetails.entryImage2,
-            exitImage: eventDetails.exitImage,
-            exitImage2: eventDetails.exitImage2,
-            entryImageData: eventDetails.entryImageData ? eventDetails.entryImageData.toString('base64') : null,
-            entryImage2Data: eventDetails.entryImage2Data ? eventDetails.entryImage2Data.toString('base64') : null,
-            exitImageData: eventDetails.exitImageData ? eventDetails.exitImageData.toString('base64') : null,
-            exitImage2Data: eventDetails.exitImage2Data ? eventDetails.exitImage2Data.toString('base64') : null,
-            entryDirection: eventDetails.entryDirection,
-            exitDirection: eventDetails.exitDirection,
-            entryConfidence: eventDetails.entryConfidence,
-            exitConfidence: eventDetails.exitConfidence,
-            entryTag: eventDetails.entryTag,
-            exitTag: eventDetails.exitTag,
-            entryTagConfidence: eventDetails.entryTagConfidence,
-            exitTagConfidence: eventDetails.exitTagConfidence,
-            entryCountry: eventDetails.entryCountry,
-            exitCountry: eventDetails.exitCountry,
-            entryCamera: eventDetails.entryCamera,
-            exitCamera: eventDetails.exitCamera,
-            ruleDetails: {
-                ruleType: rule?.ruleType,
-                ruleName: rule?.name,
-                maxDurationMinutes: rule?.maxDurationMinutes,
-                gracePeriodMinutes: rule?.gracePeriodMinutes
+            times: {
+                entry: eventDetails.entryTime,
+                exit: eventDetails.exitTime,
+                duration: eventDetails.durationMinutes
+            },
+            detections: {
+                entry: {
+                    id: eventDetails.entryDetectionId,
+                    direction: eventDetails.entryDirection,
+                    confidence: eventDetails.entryConfidence,
+                    camera: eventDetails.entryCamera,
+                    images: [
+                        `/image/${eventDetails.entryDetectionId}/1`,
+                        `/image/${eventDetails.entryDetectionId}/2`
+                    ].filter(Boolean)
+                },
+                exit: eventDetails.exitDetectionId ? {
+                    id: eventDetails.exitDetectionId,
+                    direction: eventDetails.exitDirection,
+                    confidence: eventDetails.exitConfidence,
+                    camera: eventDetails.exitCamera,
+                    images: [
+                        `/image/${eventDetails.exitDetectionId}/1`,
+                        `/image/${eventDetails.exitDetectionId}/2`
+                    ].filter(Boolean)
+                } : null
+            },
+            rule: {
+                type: rule?.ruleType,
+                name: rule?.name,
+                maxDuration: rule?.maxDurationMinutes,
+                gracePeriod: rule?.gracePeriodMinutes
             }
+        };
+        
+        // Convert dates to ISO strings for consistent storage
+        if (evidence.times.entry instanceof Date) {
+            evidence.times.entry = evidence.times.entry.toISOString();
+        }
+        if (evidence.times.exit instanceof Date) {
+            evidence.times.exit = evidence.times.exit.toISOString();
         }
         
-        const insertResult = await conn.query(
-            `INSERT INTO pcns (
-                siteId, eventId, ruleId, VRM, 
-                issueTime, issueDate, dueDate, 
-                amount, reason, status, notes,
-                evidence
-            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, 'possible', ?, ?)`,
-            [
-                siteId, 
-                eventId, 
-                ruleId, 
-                VRM, 
-                defaultAmount, 
-                defaultReason, 
-                reason,
-                JSON.stringify(evidence)
-            ]
-        );
-        logger.info('[PCN Generation] Insert result:', { insertResult });
-        
-        const pcnId = insertResult.insertId;
-        
-        // Log the PCN creation
-        await conn.query(
-            'INSERT INTO pcn_audit_log (pcnId, eventId, ruleId, siteId, action, message) VALUES (?, ?, ?, ?, ?, ?)',
-            [pcnId, eventId, ruleId, siteId, 'created', reason]
-        );
-        
-        logger.info(`[PCN Generation] Created PCN ${pcnId} for ${VRM} at ${siteId}: ${reason}`);
+        // Ensure status is a valid value and properly formatted
+        const status = 'issued'; // Use valid ENUM value
+        // Validate status value
+        if (!['issued', 'paid', 'cancelled', 'appealed'].includes(status)) {
+            throw new Error(`Invalid status value: ${status}`);
+        }
+        // Debug log the values being inserted
+        logger.info('[PCN Generation] Attempting to insert PCN with values:', {
+            siteId,
+            eventId,
+            ruleId,
+            VRM,
+            defaultAmount,
+            defaultReason,
+            status,
+            reason,
+            evidenceSize: JSON.stringify(evidence).length
+        });
+        try {
+            // First, let's verify the table structure
+            const [tableInfo] = await conn.query('DESCRIBE pcns');
+            logger.info('[PCN Generation] Table structure:', tableInfo);
+            // Create the PCN with explicit column names and values
+            const insertResult = await conn.query(
+                `INSERT INTO pcns (
+                    siteId, 
+                    eventId, 
+                    ruleId, 
+                    VRM, 
+                    issueTime, 
+                    issueDate, 
+                    dueDate, 
+                    amount, 
+                    reason, 
+                    status, 
+                    notes, 
+                    evidence
+                ) VALUES (
+                    ?, 
+                    ?, 
+                    ?, 
+                    ?, 
+                    NOW(), 
+                    CURDATE(), 
+                    DATE_ADD(CURDATE(), INTERVAL 14 DAY), 
+                    ?, 
+                    ?, 
+                    'issued', 
+                    ?, 
+                    ?
+                )`,
+                [
+                    siteId, 
+                    eventId, 
+                    ruleId, 
+                    VRM, 
+                    defaultAmount, 
+                    defaultReason, 
+                    reason,
+                    JSON.stringify(evidence)
+                ]
+            );
+            logger.info('[PCN Generation] Insert result:', { insertResult });
+            const pcnId = insertResult.insertId;
+            // Log the PCN creation
+            await conn.query(
+                'INSERT INTO pcn_audit_log (pcnId, eventId, ruleId, siteId, action, message) VALUES (?, ?, ?, ?, ?, ?)',
+                [pcnId, eventId, ruleId, siteId, 'created', reason]
+            );
+            logger.info(`[PCN Generation] Created PCN ${pcnId} for ${VRM} at ${siteId}: ${reason}`);
+        } catch (err) {
+            logger.error('[PCN Generation] Error details:', {
+                error: err,
+                sqlState: err.sqlState,
+                errno: err.errno,
+                sqlMessage: err.sqlMessage,
+                sql: err.sql,
+                stack: err.stack
+            });
+            // Try to get more information about the error
+            if (err.sqlState === '01000') {
+                logger.error('[PCN Generation] Data truncation error. Attempting to get column information...');
+                try {
+                    const [columns] = await conn.query('SHOW COLUMNS FROM pcns WHERE Field = ?', ['status']);
+                    logger.error('[PCN Generation] Status column definition:', columns);
+                } catch (colErr) {
+                    logger.error('[PCN Generation] Error getting column information:', colErr);
+                }
+            }
+            throw err;
+        }
     } catch (err) {
         logger.error('[PCN Generation] Error creating PCN:', err);
         throw err;
@@ -1681,6 +1751,120 @@ router.post('/pcns/delete-all', async (req, res) => {
     } catch (err) {
         logger.error('Error deleting all PCNs:', err);
         res.status(500).json({ error: 'Error deleting all PCNs' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Re-check and clean PCNs endpoint
+router.post('/pcns/recheck', async (req, res) => {
+    try {
+        let conn;
+        let deleted = 0;
+        let checked = 0;
+        let logDetails = [];
+        try {
+            conn = await pool.getConnection();
+            // Get all PCNs with status 'possible' or 'issued'
+            const pcns = await conn.query("SELECT * FROM pcns WHERE status IN ('possible', 'issued')");
+            logger.info(`[PCN Recheck] Checking ${pcns.length} PCNs...`);
+            for (const pcn of pcns) {
+                checked++;
+                // Check whitelist
+                const [whitelist] = await conn.query(
+                    'SELECT * FROM whitelist WHERE carParkId = ? AND VRM = ? AND active = 1',
+                    [pcn.siteId, pcn.VRM]
+                );
+                // Check payment
+                const [payment] = await conn.query(
+                    'SELECT * FROM payments WHERE siteId = ? AND vrm = ? AND paymentStart <= ? AND paymentEnd >= ? LIMIT 1',
+                    [pcn.siteId, pcn.VRM, pcn.issueTime, pcn.dueDate]
+                );
+                logger.info(`[PCN Recheck] PCN #${pcn.id} VRM=${pcn.VRM} siteId=${pcn.siteId} | Whitelist: ${!!whitelist} | Payment: ${!!payment}`);
+                logDetails.push({id: pcn.id, VRM: pcn.VRM, siteId: pcn.siteId, whitelist: !!whitelist, payment: !!payment});
+                if (whitelist || payment) {
+                    logger.info(`[PCN Recheck] Deleting PCN #${pcn.id} (whitelisted or paid)`);
+                    // Log deletion
+                    await conn.query(
+                        'INSERT INTO pcn_audit_log (pcnId, eventId, ruleId, siteId, action, message) VALUES (?, ?, ?, ?, ?, ?)',
+                        [pcn.id, pcn.eventId, pcn.ruleId, pcn.siteId, 'deleted', 'PCN auto-deleted after re-check: whitelisted or paid']
+                    );
+                    // Delete PCN
+                    await conn.query('DELETE FROM pcns WHERE id = ?', [pcn.id]);
+                    deleted++;
+                }
+            }
+            logger.info(`[PCN Recheck] Finished. Checked: ${checked}, Deleted: ${deleted}`);
+            res.json({ success: true, deleted, checked, logDetails });
+        } catch (err) {
+            logger.error('[PCN Recheck] Error during re-check:', err);
+            res.status(500).json({ success: false, error: err.message || 'Unknown error' });
+        } finally {
+            if (conn) conn.release();
+        }
+    } catch (outerErr) {
+        logger.error('[PCN Recheck] Outer error:', outerErr);
+        res.status(500).json({ success: false, error: outerErr.message || 'Unknown outer error' });
+    }
+});
+
+// Settings page
+router.get('/settings', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const [setting] = await conn.query('SELECT value FROM settings WHERE `key` = ?', ['useTwoPassSystem']);
+        res.render('admin/settings', { settings: { useTwoPassSystem: setting ? setting.value : 'false' } });
+    } catch (err) {
+        logger.error('Error fetching settings:', err);
+        res.status(500).send('Error fetching settings');
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Update settings
+router.post('/settings', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        const useTwoPassSystem = req.body.useTwoPassSystem ? 'true' : 'false';
+        await conn.query('UPDATE settings SET value = ? WHERE `key` = ?', [useTwoPassSystem, 'useTwoPassSystem']);
+        res.redirect('/admin'); // Redirect to admin dashboard after saving
+    } catch (err) {
+        logger.error('Error updating settings:', err);
+        res.status(500).send('Error updating settings');
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+// Admin dashboard
+router.get('/', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        // Get the two-pass system setting
+        const [setting] = await conn.query('SELECT value FROM settings WHERE `key` = ?', ['useTwoPassSystem']);
+        
+        // Get other dashboard data
+        const carParks = await conn.query('SELECT * FROM carparks');
+        const cameras = await conn.query('SELECT * FROM cameras');
+        const [totalEvents] = await conn.query('SELECT COUNT(*) as count FROM parking_events');
+        const [totalPCNs] = await conn.query('SELECT COUNT(*) as count FROM pcns');
+        
+        res.render('admin/index', {
+            carParks,
+            cameras,
+            totalEvents: totalEvents.count,
+            totalPCNs: totalPCNs.count,
+            settings: {
+                useTwoPassSystem: setting ? setting.value : 'false'
+            }
+        });
+    } catch (err) {
+        logger.error('Error loading admin dashboard:', err);
+        res.status(500).render('error', { message: 'Error loading admin dashboard' });
     } finally {
         if (conn) conn.release();
     }

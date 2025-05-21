@@ -1,0 +1,17 @@
+<%- include('../partials/header') %>
+
+<div class="container mt-5">
+    <h1>Admin Settings</h1>
+    <form action="/admin/settings" method="POST">
+        <div class="form-group">
+            <label for="useTwoPassSystem">Use Two-Pass Event Generation</label>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="useTwoPassSystem" name="useTwoPassSystem" <%= settings.useTwoPassSystem === 'true' ? 'checked' : '' %>>
+                <label class="form-check-label" for="useTwoPassSystem">Enable Two-Pass System</label>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+</div>
+
+<%- include('../partials/footer') %> 

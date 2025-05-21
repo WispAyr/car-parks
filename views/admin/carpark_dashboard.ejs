@@ -225,8 +225,8 @@
                                 <% recentEvents.forEach(event => { %>
                                     <tr>
                                         <td><%= event.VRM %></td>
-                                        <td><%= event.entryTime ? new Date(event.entryTime).toLocaleString() : '-' %></td>
-                                        <td><%= (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></td>
+                                        <td><%= event.entryTime ? formatUKTime(event.entryTime) : '-' %></td>
+                                        <td><%= (event.exitTime && !event.incomplete) ? formatUKTime(event.exitTime) : 'Still Parked' %></td>
                                         <td><%= event.durationMinutes ? Math.round(event.durationMinutes) + ' min' : '-' %></td>
                                         <td>
                                             <% if (event.status === 'whitelisted') { %>

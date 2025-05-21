@@ -72,8 +72,8 @@
                         <div class="col-md-6">
                             <h6 class="fw-bold">Event Details</h6>
                             <div class="evidence-details">
-                                <p><strong>Entry Time:</strong> <%= new Date(pcn.evidence.entryTime).toLocaleString() %></p>
-                                <p><strong>Exit Time:</strong> <%= new Date(pcn.evidence.exitTime).toLocaleString() %></p>
+                                <p><strong>Entry Time:</strong> <%= formatUKTime(pcn.evidence.entryTime) %></p>
+                                <p><strong>Exit Time:</strong> <%= formatUKTime(pcn.evidence.exitTime) %></p>
                                 <p><strong>Duration:</strong> <%= pcn.evidence.durationMinutes %> minutes</p>
                                 <p><strong>Entry Camera:</strong> <%= pcn.evidence.entryCamera || 'Unknown' %></p>
                                 <p><strong>Exit Camera:</strong> <%= pcn.evidence.exitCamera || 'Unknown' %></p>
@@ -140,7 +140,7 @@
                                         <tbody>
                                             <% pcn.relatedEvents.forEach(function(event) { %>
                                                 <tr>
-                                                    <td><%= new Date(event.entryTime).toLocaleString() %></td>
+                                                    <td><%= formatUKTime(event.entryTime) %></td>
                                                     <td><%= event.durationMinutes ? event.durationMinutes + ' min' : 'Still parked' %></td>
                                                     <td>
                                                         <span class="badge bg-<%= 
@@ -181,7 +181,7 @@
                                         <tbody>
                                             <% pcn.pcnHistory.forEach(function(history) { %>
                                                 <tr>
-                                                    <td><%= new Date(history.issueTime).toLocaleString() %></td>
+                                                    <td><%= formatUKTime(history.issueTime) %></td>
                                                     <td><%= history.carparkName %></td>
                                                     <td>
                                                         <span class="badge bg-<%= 

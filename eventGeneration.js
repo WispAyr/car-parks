@@ -3,7 +3,8 @@
 // Import dependencies
 require('dotenv').config();
 const pool = require('./dbPool');
-const logger = require('./utils/logger');
+const { logger } = require('./utils/logger');
+const { correctAllDetectionTimestamps } = require('./utils/correctDetectionTimestamps');
 
 // --- Helper functions (copy from server.js) ---
 function normalizeVRM(vrm) {
@@ -252,8 +253,14 @@ async function getUnprocessedDetections(carParkId, startDate, endDate) {
             FROM anpr_detections d
             JOIN cameras c ON d.cameraID = c.name
             WHERE c.carParkId = ?
-            AND d.timestamp BETWEEN ? AND ?
-            AND d.processed = FALSE
+              AND d.timestamp BETWEEN ? AND ?
+              AND d.processed = FALSE
+              AND d.VRM IS NOT NULL
+              AND d.VRM != ''
+              AND UPPER(d.VRM) != 'UNKNOWN'
+              AND d.direction IS NOT NULL
+              AND d.direction != ''
+              AND LOWER(d.direction) != 'unknown'
             ORDER BY d.timestamp ASC
         `;
         const rows = await conn.query(query, [carParkId, startDate, endDate]);
@@ -267,50 +274,139 @@ async function getUnprocessedDetections(carParkId, startDate, endDate) {
     }
 }
 
-// --- generateParkingEvents (copy from server.js, with progressCallback) ---
-async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = false, progressCallback) {
+// --- Two-Pass System ---
+
+// Stage 1: Generate raw entry/exit events
+async function generateRawEntryExitEvents(startDate, endDate, progressCallback) {
     let conn;
-    const allEvents = [];
-    const stats = {
-        carParks: {},
-        totalDetections: 0,
-        totalUnknownDirections: 0,
-        totalUnknownVRMs: 0,
-        totalEvents: {
-            created: 0,
-            completed: 0,
-            skipped: {
-                durationTooShort: 0,
-                throughTraffic: 0,
-                missingExit: 0,
-                invalidDirection: 0
-            }
-        }
-    };
-    
+    const allRawEvents = [];
     try {
         conn = await pool.getConnection();
-        if (clearFlaggedEvents) {
-            await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-            await conn.query('TRUNCATE TABLE parking_events');
-            await conn.query('SET FOREIGN_KEY_CHECKS = 1');
-        }
         const carParks = await conn.query('SELECT * FROM carparks');
-        
-        // Add debug logging for total car parks
-        logger.info(`[DEBUG] Processing events for ${carParks.length} car parks`);
-        
         for (let idx = 0; idx < carParks.length; idx++) {
             const carPark = carParks[idx];
-            logger.info(`\n[DEBUG] Processing car park ${carPark.siteId} (${carPark.name})`);
-            
-            // Initialize stats for this car park
-            stats.carParks[carPark.siteId] = {
-                name: carPark.name,
+            const start = safeToISOString(startDate, '1970-01-01T00:00:00Z');
+            const end = safeToISOString(endDate, '2100-01-01T00:00:00Z');
+            const detections = await getUnprocessedDetections(carPark.siteId, start, end);
+            for (const detection of detections) {
+                const direction = detection.direction?.trim().toLowerCase() === 'entry' ? 'entry' : 'exit';
+                allRawEvents.push({
+                    siteId: carPark.siteId,
+                    VRM: normalizeVRM(detection.VRM),
+                    timestamp: detection.timestamp,
+                    direction,
+                    cameraId: detection.cameraID,
+                    detectionId: detection.id
+                });
+            }
+            if (progressCallback) {
+                const percent = Math.round((idx + 1) / carParks.length * 100);
+                progressCallback(percent);
+            }
+        }
+        // Insert raw events into the new table
+        const batchSize = 100;
+        for (let i = 0; i < allRawEvents.length; i += batchSize) {
+            const batch = allRawEvents.slice(i, i + batchSize);
+            const values = batch.map(event => [
+                event.siteId,
+                event.VRM,
+                new Date(event.timestamp).toISOString().slice(0, 19).replace('T', ' '),
+                event.direction,
+                event.cameraId,
+                event.detectionId
+            ]);
+            const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?)').join(',');
+            const query = `
+                INSERT INTO raw_entry_exit_events 
+                (siteId, VRM, timestamp, direction, cameraId, detectionId)
+                VALUES ${placeholders}
+            `;
+            await conn.query(query, values.flat());
+        }
+    } catch (err) {
+        logger.error('Error in generateRawEntryExitEvents:', err);
+    } finally {
+        if (conn) conn.release();
+    }
+    return allRawEvents;
+}
+
+// Stage 2: Reconcile raw events into parking events
+async function reconcileParkingEvents(progressCallback) {
+    let conn;
+    const allEvents = [];
+    try {
+        conn = await pool.getConnection();
+        const rawEvents = await conn.query('SELECT * FROM raw_entry_exit_events WHERE processed = FALSE ORDER BY VRM, timestamp');
+        const eventsByVRM = {};
+        for (const event of rawEvents) {
+            if (!eventsByVRM[event.VRM]) {
+                eventsByVRM[event.VRM] = [];
+            }
+            eventsByVRM[event.VRM].push(event);
+        }
+        for (const [vrm, events] of Object.entries(eventsByVRM)) {
+            const processedEvents = await processBuffer(
+                events[0].siteId,
+                vrm,
+                events,
+                10, // throughLimit
+                1,  // minEventDurationMinutes
+                eventsByVRM,
+                await getCameraMap()
+            );
+            if (Array.isArray(processedEvents)) {
+                allEvents.push(...processedEvents);
+            }
+            if (progressCallback) {
+                const percent = Math.round(Object.keys(eventsByVRM).indexOf(vrm) / Object.keys(eventsByVRM).length * 100);
+                progressCallback(percent);
+            }
+        }
+        // Mark raw events as processed
+        await conn.query('UPDATE raw_entry_exit_events SET processed = TRUE WHERE processed = FALSE');
+    } catch (err) {
+        logger.error('Error in reconcileParkingEvents:', err);
+    } finally {
+        if (conn) conn.release();
+    }
+    return allEvents;
+}
+
+// Compare results from both systems
+async function compareResults(singlePassEvents, twoPassEvents) {
+    logger.info('\n[COMPARISON] Single-Pass vs Two-Pass Results:');
+    logger.info('==========================================');
+    logger.info(`Single-Pass Events: ${singlePassEvents.length}`);
+    logger.info(`Two-Pass Events: ${twoPassEvents.length}`);
+    // Add more detailed comparison logic here if needed
+}
+
+// --- Main function with flag to choose system ---
+async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = false, progressCallback) {
+    // Ensure all detection timestamps are corrected before processing
+    await correctAllDetectionTimestamps();
+    let conn;
+    const startTime = Date.now();
+    try {
+        conn = await pool.getConnection();
+        const [setting] = await conn.query('SELECT value FROM settings WHERE `key` = ?', ['useTwoPassSystem']);
+        const useTwoPassSystem = setting && setting.value === 'true';
+        logger.info(`[EVENT GENERATION] Starting event generation using method: ${useTwoPassSystem ? 'TWO-PASS' : 'SINGLE-PASS'}`);
+        logger.info(`[EVENT GENERATION] Start time: ${new Date(startTime).toISOString()}`);
+        let result;
+        if (useTwoPassSystem) {
+            await generateRawEntryExitEvents(startDate, endDate, progressCallback);
+            result = await reconcileParkingEvents(progressCallback);
+        } else {
+            let allEvents = [];
+            const stats = {
+                carParks: {},
                 totalDetections: 0,
-                unknownDirections: 0,
-                unknownVRMs: 0,
-                events: {
+                totalUnknownDirections: 0,
+                totalUnknownVRMs: 0,
+                totalEvents: {
                     created: 0,
                     completed: 0,
                     skipped: {
@@ -322,157 +418,196 @@ async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = fa
                 }
             };
             
-            const start = safeToISOString(startDate, '1970-01-01T00:00:00Z');
-            const end = safeToISOString(endDate, '2100-01-01T00:00:00Z');
-            const detections = await getUnprocessedDetections(carPark.siteId, start, end);
-            
-            if (detections.length === 0) {
-                logger.info(`[DEBUG] No unprocessed detections found for car park ${carPark.siteId}`);
-                continue;
+            if (clearFlaggedEvents) {
+                await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+                await conn.query('TRUNCATE TABLE parking_events');
+                await conn.query('SET FOREIGN_KEY_CHECKS = 1');
             }
+            const carParks = await conn.query('SELECT * FROM carparks');
             
-            logger.info(`[DEBUG] Found ${detections.length} unprocessed detections for car park ${carPark.siteId}`);
+            // Add debug logging for total car parks
+            logger.info(`[DEBUG] Processing events for ${carParks.length} car parks`);
             
-            // Update total detections
-            stats.totalDetections += detections.length;
-            stats.carParks[carPark.siteId].totalDetections = detections.length;
-            
-            const detectionsByVRM = {};
-            for (const detection of detections) {
-                // Track unknown directions
-                if (!detection.direction || detection.direction.toLowerCase() === 'unknown') {
-                    stats.totalUnknownDirections++;
-                    stats.carParks[carPark.siteId].unknownDirections++;
+            for (let idx = 0; idx < carParks.length; idx++) {
+                const carPark = carParks[idx];
+                logger.info(`\n[DEBUG] Processing car park ${carPark.siteId} (${carPark.name})`);
+                
+                // Initialize stats for this car park
+                stats.carParks[carPark.siteId] = {
+                    name: carPark.name,
+                    totalDetections: 0,
+                    unknownDirections: 0,
+                    unknownVRMs: 0,
+                    events: {
+                        created: 0,
+                        completed: 0,
+                        skipped: {
+                            durationTooShort: 0,
+                            throughTraffic: 0,
+                            missingExit: 0,
+                            invalidDirection: 0
+                        }
+                    }
+                };
+                
+                const start = safeToISOString(startDate, '1970-01-01T00:00:00Z');
+                const end = safeToISOString(endDate, '2100-01-01T00:00:00Z');
+                const detections = await getUnprocessedDetections(carPark.siteId, start, end);
+                
+                if (detections.length === 0) {
+                    logger.info(`[DEBUG] No unprocessed detections found for car park ${carPark.siteId}`);
+                    continue;
                 }
                 
-                // Track unknown VRMs
-                if (!detection.VRM || detection.VRM === 'UNKNOWN') {
-                    stats.totalUnknownVRMs++;
-                    stats.carParks[carPark.siteId].unknownVRMs++;
+                logger.info(`[DEBUG] Found ${detections.length} unprocessed detections for car park ${carPark.siteId}`);
+                
+                // Update total detections
+                stats.totalDetections += detections.length;
+                stats.carParks[carPark.siteId].totalDetections = detections.length;
+                
+                const detectionsByVRM = {};
+                for (const detection of detections) {
+                    // Track unknown directions
+                    if (!detection.direction || detection.direction.toLowerCase() === 'unknown') {
+                        stats.totalUnknownDirections++;
+                        stats.carParks[carPark.siteId].unknownDirections++;
+                    }
+                    
+                    // Track unknown VRMs
+                    if (!detection.VRM || detection.VRM === 'UNKNOWN') {
+                        stats.totalUnknownVRMs++;
+                        stats.carParks[carPark.siteId].unknownVRMs++;
+                    }
+                    
+                    const normalizedVRM = normalizeVRM(detection.VRM);
+                    if (!detectionsByVRM[normalizedVRM]) {
+                        detectionsByVRM[normalizedVRM] = [];
+                    }
+                    detectionsByVRM[normalizedVRM].push(detection);
                 }
                 
-                const normalizedVRM = normalizeVRM(detection.VRM);
-                if (!detectionsByVRM[normalizedVRM]) {
-                    detectionsByVRM[normalizedVRM] = [];
+                const events = [];
+                const vrms = Object.entries(detectionsByVRM);
+                logger.info(`[DEBUG] Processing ${vrms.length} unique VRMs for car park ${carPark.siteId}`);
+                
+                for (let vIdx = 0; vIdx < vrms.length; vIdx++) {
+                    const [vrm, vrmDetections] = vrms[vIdx];
+                    const cameraMap = await getCameraMap();
+                    const processedEvents = await processBuffer(
+                        carPark.siteId,
+                        vrm,
+                        vrmDetections,
+                        carPark.throughLimit || 10,
+                        carPark.minEventDurationMinutes || 1,
+                        detectionsByVRM,
+                        cameraMap
+                    );
+                    if (Array.isArray(processedEvents)) {
+                        events.push(...processedEvents);
+                        
+                        // Update car park statistics with VRM-level stats
+                        stats.carParks[carPark.siteId].events.created += processedEvents.length;
+                        stats.totalEvents.created += processedEvents.length;
+                        
+                        // Count completed events
+                        const completedEvents = processedEvents.filter(e => e.exitTime);
+                        stats.carParks[carPark.siteId].events.completed += completedEvents.length;
+                        stats.totalEvents.completed += completedEvents.length;
+                        
+                        // Count through traffic
+                        const throughTraffic = processedEvents.filter(e => e.throughTraffic);
+                        stats.carParks[carPark.siteId].events.skipped.throughTraffic += throughTraffic.length;
+                        stats.totalEvents.skipped.throughTraffic += throughTraffic.length;
+                    }
+                    if (progressCallback) {
+                        const percent = Math.round((idx + vIdx / vrms.length) / carParks.length * 100);
+                        progressCallback(percent);
+                    }
                 }
-                detectionsByVRM[normalizedVRM].push(detection);
+                
+                logger.info(`[DEBUG] Generated ${events.length} events for car park ${carPark.siteId}`);
+                
+                if (events.length > 0) {
+                    const batchSize = 100;
+                    for (let i = 0; i < events.length; i += batchSize) {
+                        const batch = events.slice(i, i + batchSize);
+                        const values = batch.map(event => [
+                            event.siteId,
+                            event.VRM,
+                            new Date(event.entryTime).toISOString().slice(0, 19).replace('T', ' '),
+                            event.exitTime ? new Date(event.exitTime).toISOString().slice(0, 19).replace('T', ' ') : null,
+                            event.durationMinutes,
+                            event.throughTraffic ? 1 : 0,
+                            event.entryDetectionId,
+                            event.exitDetectionId,
+                            event.entryCameraId,
+                            event.exitCameraId
+                        ]);
+                        const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+                        const query = `
+                            INSERT INTO parking_events 
+                            (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
+                            VALUES ${placeholders}
+                            ON DUPLICATE KEY UPDATE
+                                exitTime = VALUES(exitTime),
+                                durationMinutes = VALUES(durationMinutes),
+                                throughTraffic = VALUES(throughTraffic),
+                                exitDetectionId = VALUES(exitDetectionId),
+                                exitCameraId = VALUES(exitCameraId)
+                        `;
+                        await conn.query(query, values.flat());
+                    }
+                }
+                const detectionIds = detections.map(d => d.id);
+                if (detectionIds.length > 0) {
+                    await conn.query('UPDATE anpr_detections SET processed = TRUE WHERE id IN (?)', [detectionIds]);
+                }
+                allEvents.push(...events);
             }
             
-            const events = [];
-            const vrms = Object.entries(detectionsByVRM);
-            logger.info(`[DEBUG] Processing ${vrms.length} unique VRMs for car park ${carPark.siteId}`);
+            // Print final statistics
+            logger.info('\n[STATS] Event Generation Statistics:');
+            logger.info('===================================');
+            logger.info(`Total Detections: ${stats.totalDetections}`);
+            logger.info(`Total Unknown Directions: ${stats.totalUnknownDirections} (${((stats.totalUnknownDirections / stats.totalDetections) * 100).toFixed(2)}%)`);
+            logger.info(`Total Unknown VRMs: ${stats.totalUnknownVRMs} (${((stats.totalUnknownVRMs / stats.totalDetections) * 100).toFixed(2)}%)`);
             
-            for (let vIdx = 0; vIdx < vrms.length; vIdx++) {
-                const [vrm, vrmDetections] = vrms[vIdx];
-                const cameraMap = await getCameraMap();
-                const processedEvents = await processBuffer(
-                    carPark.siteId,
-                    vrm,
-                    vrmDetections,
-                    carPark.throughLimit || 10,
-                    carPark.minEventDurationMinutes || 1,
-                    detectionsByVRM,
-                    cameraMap
-                );
-                if (Array.isArray(processedEvents)) {
-                    events.push(...processedEvents);
-                    
-                    // Update car park statistics with VRM-level stats
-                    stats.carParks[carPark.siteId].events.created += processedEvents.length;
-                    stats.totalEvents.created += processedEvents.length;
-                    
-                    // Count completed events
-                    const completedEvents = processedEvents.filter(e => e.exitTime);
-                    stats.carParks[carPark.siteId].events.completed += completedEvents.length;
-                    stats.totalEvents.completed += completedEvents.length;
-                    
-                    // Count through traffic
-                    const throughTraffic = processedEvents.filter(e => e.throughTraffic);
-                    stats.carParks[carPark.siteId].events.skipped.throughTraffic += throughTraffic.length;
-                    stats.totalEvents.skipped.throughTraffic += throughTraffic.length;
-                }
-                if (progressCallback) {
-                    const percent = Math.round((idx + vIdx / vrms.length) / carParks.length * 100);
-                    progressCallback(percent);
-                }
-            }
+            logger.info('\nEvent Statistics:');
+            logger.info('================');
+            logger.info(`Total Events Created: ${stats.totalEvents.created}`);
+            logger.info(`Total Events Completed: ${stats.totalEvents.completed}`);
+            logger.info('\nSkipped Events:');
+            logger.info(`- Duration Too Short: ${stats.totalEvents.skipped.durationTooShort}`);
+            logger.info(`- Through Traffic: ${stats.totalEvents.skipped.throughTraffic}`);
+            logger.info(`- Missing Exit: ${stats.totalEvents.skipped.missingExit}`);
+            logger.info(`- Invalid Direction: ${stats.totalEvents.skipped.invalidDirection}`);
             
-            logger.info(`[DEBUG] Generated ${events.length} events for car park ${carPark.siteId}`);
+            logger.info('\nPer Car Park Statistics:');
+            logger.info('=======================');
             
-            if (events.length > 0) {
-                const batchSize = 100;
-                for (let i = 0; i < events.length; i += batchSize) {
-                    const batch = events.slice(i, i + batchSize);
-                    const values = batch.map(event => [
-                        event.siteId,
-                        event.VRM,
-                        new Date(event.entryTime).toISOString().slice(0, 19).replace('T', ' '),
-                        event.exitTime ? new Date(event.exitTime).toISOString().slice(0, 19).replace('T', ' ') : null,
-                        event.durationMinutes,
-                        event.throughTraffic ? 1 : 0,
-                        event.entryDetectionId,
-                        event.exitDetectionId,
-                        event.entryCameraId,
-                        event.exitCameraId
-                    ]);
-                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
-                    const query = `
-                        INSERT INTO parking_events 
-                        (siteId, VRM, entryTime, exitTime, durationMinutes, throughTraffic, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId)
-                        VALUES ${placeholders}
-                        ON DUPLICATE KEY UPDATE
-                            exitTime = VALUES(exitTime),
-                            durationMinutes = VALUES(durationMinutes),
-                            throughTraffic = VALUES(throughTraffic),
-                            exitDetectionId = VALUES(exitDetectionId),
-                            exitCameraId = VALUES(exitCameraId)
-                    `;
-                    await conn.query(query, values.flat());
+            Object.entries(stats.carParks).forEach(([siteId, parkStats]) => {
+                if (parkStats.totalDetections > 0) {
+                    logger.info(`\nCar Park: ${parkStats.name} (${siteId})`);
+                    logger.info(`Total Detections: ${parkStats.totalDetections}`);
+                    logger.info(`Unknown Directions: ${parkStats.unknownDirections} (${((parkStats.unknownDirections / parkStats.totalDetections) * 100).toFixed(2)}%)`);
+                    logger.info(`Unknown VRMs: ${parkStats.unknownVRMs} (${((parkStats.unknownVRMs / parkStats.totalDetections) * 100).toFixed(2)}%)`);
+                    logger.info('\nEvents:');
+                    logger.info(`- Created: ${parkStats.events.created}`);
+                    logger.info(`- Completed: ${parkStats.events.completed}`);
+                    logger.info(`- Through Traffic: ${parkStats.events.skipped.throughTraffic}`);
                 }
-            }
-            const detectionIds = detections.map(d => d.id);
-            if (detectionIds.length > 0) {
-                await conn.query('UPDATE anpr_detections SET processed = TRUE WHERE id IN (?)', [detectionIds]);
-            }
-            allEvents.push(...events);
+            });
+            
+            result = allEvents;
         }
-        
-        // Print final statistics
-        logger.info('\n[STATS] Event Generation Statistics:');
-        logger.info('===================================');
-        logger.info(`Total Detections: ${stats.totalDetections}`);
-        logger.info(`Total Unknown Directions: ${stats.totalUnknownDirections} (${((stats.totalUnknownDirections / stats.totalDetections) * 100).toFixed(2)}%)`);
-        logger.info(`Total Unknown VRMs: ${stats.totalUnknownVRMs} (${((stats.totalUnknownVRMs / stats.totalDetections) * 100).toFixed(2)}%)`);
-        
-        logger.info('\nEvent Statistics:');
-        logger.info('================');
-        logger.info(`Total Events Created: ${stats.totalEvents.created}`);
-        logger.info(`Total Events Completed: ${stats.totalEvents.completed}`);
-        logger.info('\nSkipped Events:');
-        logger.info(`- Duration Too Short: ${stats.totalEvents.skipped.durationTooShort}`);
-        logger.info(`- Through Traffic: ${stats.totalEvents.skipped.throughTraffic}`);
-        logger.info(`- Missing Exit: ${stats.totalEvents.skipped.missingExit}`);
-        logger.info(`- Invalid Direction: ${stats.totalEvents.skipped.invalidDirection}`);
-        
-        logger.info('\nPer Car Park Statistics:');
-        logger.info('=======================');
-        
-        Object.entries(stats.carParks).forEach(([siteId, parkStats]) => {
-            if (parkStats.totalDetections > 0) {
-                logger.info(`\nCar Park: ${parkStats.name} (${siteId})`);
-                logger.info(`Total Detections: ${parkStats.totalDetections}`);
-                logger.info(`Unknown Directions: ${parkStats.unknownDirections} (${((parkStats.unknownDirections / parkStats.totalDetections) * 100).toFixed(2)}%)`);
-                logger.info(`Unknown VRMs: ${parkStats.unknownVRMs} (${((parkStats.unknownVRMs / parkStats.totalDetections) * 100).toFixed(2)}%)`);
-                logger.info('\nEvents:');
-                logger.info(`- Created: ${parkStats.events.created}`);
-                logger.info(`- Completed: ${parkStats.events.completed}`);
-                logger.info(`- Through Traffic: ${parkStats.events.skipped.throughTraffic}`);
-            }
-        });
-        
-        if (progressCallback) progressCallback(100);
-        return allEvents;
+        const endTime = Date.now();
+        const durationSec = ((endTime - startTime) / 1000).toFixed(2);
+        logger.info(`[EVENT GENERATION] Completed event generation using method: ${useTwoPassSystem ? 'TWO-PASS' : 'SINGLE-PASS'}`);
+        logger.info(`[EVENT GENERATION] End time: ${new Date(endTime).toISOString()}`);
+        logger.info(`[EVENT GENERATION] Total time taken: ${durationSec} seconds`);
+        return result;
     } catch (err) {
+        logger.error('Error in generateParkingEvents:', err);
         throw err;
     } finally {
         if (conn) conn.release();

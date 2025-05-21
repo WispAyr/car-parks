@@ -216,3 +216,212 @@
 [31msql: DELETE FROM pcns - parameters:[][39m
 2025-05-21 14:48:46:4846 [31merror[39m: [31mError deleting all PCNs: (conn:24461, no: 1451, SQLState: 23000) Cannot delete or update a parent row: a foreign key constraint fails (`nocobase`.`pcn_audit_log`, CONSTRAINT `pcn_audit_log_ibfk_1` FOREIGN KEY (`pcnId`) REFERENCES `pcns` (`id`))[39m
 [31msql: DELETE FROM pcns - parameters:[][39m
+2025-05-21 16:25:46:2546 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24774, no: 1054, SQLState: 42S22) Unknown column 'ed.image1_data' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                e.*,[39m
+[31m                ed.image1 as entryImage,[39m
+[31m                ed.image2 as entryImage2,[39m
+[31m                ed.image1_data as entryImageData,[39m
+[31m                ed.image2_data as entryImage2Data,[39m
+[31m                ed.direction a...[39m
+2025-05-21 16:25:46:2546 [31merror[39m: [31mError generating PCNs: (conn:24774, no: 1054, SQLState: 42S22) Unknown column 'ed.image1_data' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                e.*,[39m
+[31m                ed.image1 as entryImage,[39m
+[31m                ed.image2 as entryImage2,[39m
+[31m                ed.image1_data as entryImageData,[39m
+[31m                ed.image2_data as entryImage2Data,[39m
+[31m                ed.direction a...[39m
+2025-05-21 16:54:40:5440 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24785, no: 1054, SQLState: 42S22) Unknown column 'ed.image1_data' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                e.*,[39m
+[31m                ed.image1 as entryImage,[39m
+[31m                ed.image2 as entryImage2,[39m
+[31m                ed.image1_data as entryImageData,[39m
+[31m                ed.image2_data as entryImage2Data,[39m
+[31m                ed.direction a...[39m
+2025-05-21 16:54:40:5440 [31merror[39m: [31mError generating PCNs: (conn:24785, no: 1054, SQLState: 42S22) Unknown column 'ed.image1_data' in 'field list'[39m
+[31msql: [39m
+[31m            SELECT [39m
+[31m                e.*,[39m
+[31m                ed.image1 as entryImage,[39m
+[31m                ed.image2 as entryImage2,[39m
+[31m                ed.image1_data as entryImageData,[39m
+[31m                ed.image2_data as entryImage2Data,[39m
+[31m                ed.direction a...[39m
+2025-05-21 16:55:34:5534 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24797, no: 1153, SQLState: 08S01) Got a packet bigger than 'max_allowed_packet' bytes[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 16:55:34:5534 [31merror[39m: [31mError generating PCNs: (conn:24797, no: 1153, SQLState: 08S01) Got a packet bigger than 'max_allowed_packet' bytes[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:03:02:32 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24805, no: 1153, SQLState: 08S01) Got a packet bigger than 'max_allowed_packet' bytes[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:03:02:32 [31merror[39m: [31mError generating PCNs: (conn:24805, no: 1153, SQLState: 08S01) Got a packet bigger than 'max_allowed_packet' bytes[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:03:25:325 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24821, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:03:25:325 [31merror[39m: [31mError generating PCNs: (conn:24821, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:05:00:50 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24843, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:05:00:50 [31merror[39m: [31mError generating PCNs: (conn:24843, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:22:08:228 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24866, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:22:08:228 [31merror[39m: [31mError generating PCNs: (conn:24866, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:23:48:2348 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24886, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:23:48:2348 [31merror[39m: [31mError generating PCNs: (conn:24886, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:26:08:268 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24907, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:26:08:268 [31merror[39m: [31mError generating PCNs: (conn:24907, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:26:40:2640 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24909, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:26:40:2640 [31merror[39m: [31mError generating PCNs: (conn:24909, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                siteId, eventId, ruleId, VRM, [39m
+[31m                issueTime, issueDate, dueDate, [39m
+[31m                amount, reason, status, notes,[39m
+[31m                evidence[39m
+[31m            ) VALUES (?, ?, ?, ?, NOW(), NOW(), DATE_ADD(NOW(), INTERV...[39m
+2025-05-21 17:28:30:2830 [31merror[39m: [31m[PCN Generation] Error details:[39m
+2025-05-21 17:28:30:2830 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24960, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, eventId, ruleId, VRM, [39m
+[31m                    issueTime, issueDate, dueDate, [39m
+[31m                    amount, reason, status, notes,[39m
+[31m                    evidence[39m
+[31m                ) VALUES (?, ?, ?, ?, NOW(), NOW(), DA...[39m
+2025-05-21 17:28:30:2830 [31merror[39m: [31mError generating PCNs: (conn:24960, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, eventId, ruleId, VRM, [39m
+[31m                    issueTime, issueDate, dueDate, [39m
+[31m                    amount, reason, status, notes,[39m
+[31m                    evidence[39m
+[31m                ) VALUES (?, ?, ?, ?, NOW(), NOW(), DA...[39m
+2025-05-21 17:29:31:2931 [31merror[39m: [31m[PCN Generation] Error details:[39m
+2025-05-21 17:29:31:2931 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:24981, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, eventId, ruleId, VRM, [39m
+[31m                    issueTime, issueDate, dueDate, [39m
+[31m                    amount, reason, status, notes,[39m
+[31m                    evidence[39m
+[31m                ) VALUES (?, ?, ?, ?, NOW(), NOW(), DA...[39m
+2025-05-21 17:29:31:2931 [31merror[39m: [31mError generating PCNs: (conn:24981, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, eventId, ruleId, VRM, [39m
+[31m                    issueTime, issueDate, dueDate, [39m
+[31m                    amount, reason, status, notes,[39m
+[31m                    evidence[39m
+[31m                ) VALUES (?, ?, ?, ?, NOW(), NOW(), DA...[39m
+2025-05-21 17:30:54:3054 [31merror[39m: [31m[PCN Generation] Error details:[39m
+2025-05-21 17:30:54:3054 [31merror[39m: [31m[PCN Generation] Data truncation error. Attempting to get column information...[39m
+2025-05-21 17:30:54:3054 [31merror[39m: [31m[PCN Generation] Status column definition:[39m
+2025-05-21 17:30:54:3054 [31merror[39m: [31m[PCN Generation] Error creating PCN: (conn:25001, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, [39m
+[31m                    eventId, [39m
+[31m                    ruleId, [39m
+[31m                    VRM, [39m
+[31m                    issueTime, [39m
+[31m                    issueDate, [39m
+[31m                    dueDate, [39m
+[31m                    amount, [39m
+[31m...[39m
+2025-05-21 17:30:54:3054 [31merror[39m: [31mError generating PCNs: (conn:25001, no: 1265, SQLState: 01000) Data truncated for column 'status' at row 1[39m
+[31msql: INSERT INTO pcns ([39m
+[31m                    siteId, [39m
+[31m                    eventId, [39m
+[31m                    ruleId, [39m
+[31m                    VRM, [39m
+[31m                    issueTime, [39m
+[31m                    issueDate, [39m
+[31m                    dueDate, [39m
+[31m                    amount, [39m
+[31m...[39m
+2025-05-21 20:02:59:259 [31merror[39m: [31mError in generateParkingEvents: (conn:25413, no: 1064, SQLState: 42000) You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'key = 'useTwoPassSystem'' at line 1[39m
+[31msql: SELECT value FROM settings WHERE key = ? - parameters:['useTwoPassSystem'][39m
+2025-05-22 00:44:20:4420 [31merror[39m: [31mError fetching data: (conn:-1, no: 45028, SQLState: HY000) pool timeout: failed to retrieve a connection from pool after 10003ms[39m
+[31m    (pool connections: active=8 idle=0 limit=20)[39m
+2025-05-22 00:44:24:4424 [31merror[39m: [31m[PCN Automation] Error in job: (conn:-1, no: 45028, SQLState: HY000) pool timeout: failed to retrieve a connection from pool after 10001ms[39m
+[31m    (pool connections: active=8 idle=0 limit=20)[39m
