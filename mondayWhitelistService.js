@@ -1,5 +1,6 @@
 // const fetch = require('node-fetch');
 const MONDAY_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjQ5NjA4MTgxNSwiYWFpIjoxMSwidWlkIjo3NDE4Njk1NiwiaWFkIjoiMjAyNS0wNC0wNlQxNjozOTowMy4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6Mjg4Mjg1NTQsInJnbiI6ImV1YzEifQ.GaMX3Dom4zX3dpsfMgpEizvQ27Key9YkTz3TW1XE-zg';
+const pool = require('./dbPool');
 
 let cachedWhitelists = {};
 
@@ -47,6 +48,10 @@ async function fetchWhitelistsFromMonday() {
   }
   const allItems = data.data.boards[0].groups.flatMap(group => group.items_page.items);
   cachedWhitelists = mapWhitelists(allItems);
+
+  // --- NEW: Update whitelist table in DB ---
+  await updateWhitelistTable(cachedWhitelists);
+
   return cachedWhitelists;
 }
 
@@ -78,6 +83,26 @@ function isWhitelisted(siteId, vrm, today = new Date()) {
     if (entry.endDate && today > entry.endDate) return false;
     return true;
   });
+}
+
+async function updateWhitelistTable(whitelistMap) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query('DELETE FROM whitelist');
+    for (const siteId in whitelistMap) {
+      for (const entry of whitelistMap[siteId]) {
+        await conn.query(
+          'INSERT INTO whitelist (carParkId, VRM, active) VALUES (?, ?, 1)',
+          [siteId, entry.vrm]
+        );
+      }
+    }
+    console.log('Whitelist table updated from Monday.com');
+  } catch (err) {
+    console.error('Error updating whitelist table:', err);
+  } finally {
+    conn.release();
+  }
 }
 
 module.exports = { fetchWhitelistsFromMonday, isWhitelisted, getCachedWhitelists: () => cachedWhitelists }; 

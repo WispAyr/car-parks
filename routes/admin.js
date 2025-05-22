@@ -1,6 +1,6 @@
 const express = require('express');
 const { getCachedWhitelists } = require('../mondayWhitelistService');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');

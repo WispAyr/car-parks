@@ -1,0 +1,82 @@
+<div class="container mt-4">
+  <h2><i class="bi bi-lightning-charge"></i> Smart Event Generation (Dry Run)</h2>
+  <div class="card mb-4">
+    <div class="card-body">
+      <form id="smartEventGenForm" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label for="startDate" class="form-label">Start Date/Time</label>
+          <input type="datetime-local" class="form-control" id="startDate" name="startDate" required>
+        </div>
+        <div class="col-md-4">
+          <label for="endDate" class="form-label">End Date/Time</label>
+          <input type="datetime-local" class="form-control" id="endDate" name="endDate" required>
+        </div>
+        <div class="col-md-3">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" id="dryRun" name="dryRun" checked>
+            <label class="form-check-label" for="dryRun">
+              Dry Run (no changes to database)
+            </label>
+          </div>
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary w-100" id="runSmartGenBtn">
+            <span id="smartGenSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+            <i class="bi bi-lightning-charge"></i> Run Dry-Run
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="smartGenResult" class="mt-4" style="display:none;">
+    <h5>Dry-Run Summary</h5>
+    <pre id="smartGenSummary" style="background:#f8f9fa;padding:16px;border-radius:8px;max-height:500px;overflow:auto;"></pre>
+  </div>
+  <div id="smartGenError" class="alert alert-danger d-none mt-3"></div>
+  <div id="dryRunWarning" class="alert alert-warning mt-2 d-none" role="alert">
+    <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> Dry run is <b>OFF</b>. This will create events in the database!
+  </div>
+</div>
+<script>
+// Set default date range to last 24h
+(function() {
+  const now = new Date();
+  const start = new Date(now.getTime() - 24*60*60*1000);
+  document.getElementById('startDate').value = start.toISOString().slice(0,16);
+  document.getElementById('endDate').value = now.toISOString().slice(0,16);
+})();
+
+document.getElementById('dryRun').addEventListener('change', function() {
+  document.getElementById('dryRunWarning').classList.toggle('d-none', this.checked);
+});
+
+document.getElementById('smartEventGenForm').onsubmit = async function(e) {
+  e.preventDefault();
+  document.getElementById('smartGenResult').style.display = 'none';
+  document.getElementById('smartGenError').classList.add('d-none');
+  document.getElementById('smartGenSummary').textContent = '';
+  document.getElementById('smartGenSpinner').classList.remove('d-none');
+  document.getElementById('runSmartGenBtn').disabled = true;
+  try {
+    const startDate = document.getElementById('startDate').value.replace('T', ' ');
+    const endDate = document.getElementById('endDate').value.replace('T', ' ');
+    const dryRun = document.getElementById('dryRun').checked;
+    const res = await fetch(`/admin/smart-event-generation?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&dryRun=${dryRun}`);
+    const data = await res.json();
+    document.getElementById('smartGenSpinner').classList.add('d-none');
+    document.getElementById('runSmartGenBtn').disabled = false;
+    if (data.success) {
+      document.getElementById('smartGenResult').style.display = '';
+      document.getElementById('smartGenSummary').textContent = JSON.stringify(data.summary, null, 2);
+    } else {
+      document.getElementById('smartGenError').classList.remove('d-none');
+      document.getElementById('smartGenError').textContent = data.error || 'Unknown error.';
+    }
+  } catch (err) {
+    document.getElementById('smartGenSpinner').classList.add('d-none');
+    document.getElementById('runSmartGenBtn').disabled = false;
+    document.getElementById('smartGenError').classList.remove('d-none');
+    document.getElementById('smartGenError').textContent = err.message || 'Network error.';
+  }
+};
+</script> 

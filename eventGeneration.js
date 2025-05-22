@@ -4,7 +4,6 @@
 require('dotenv').config();
 const pool = require('./dbPool');
 const { logger } = require('./utils/logger');
-const { correctAllDetectionTimestamps } = require('./utils/correctDetectionTimestamps');
 
 // --- Helper functions (copy from server.js) ---
 function normalizeVRM(vrm) {
@@ -385,8 +384,6 @@ async function compareResults(singlePassEvents, twoPassEvents) {
 
 // --- Main function with flag to choose system ---
 async function generateParkingEvents(startDate, endDate, clearFlaggedEvents = false, progressCallback) {
-    // Ensure all detection timestamps are corrected before processing
-    await correctAllDetectionTimestamps();
     let conn;
     const startTime = Date.now();
     try {
@@ -632,4 +629,176 @@ async function markDetectionAsProcessed(detectionId) {
     }
 }
 
-module.exports = { generateParkingEvents }; 
+/**
+ * Smart event generation with dry-run/test mode.
+ * Processes unprocessed detections by VRM, pairing entries and exits, handling double entries/exits, and logging anomalies.
+ * @param {string|Date} startDate
+ * @param {string|Date} endDate
+ * @param {boolean} dryRun - If true, do not update DB, just log actions.
+ * @param {function} progressCallback
+ * @returns {Promise<object>} Summary of actions/events/anomalies
+ */
+async function generateParkingEventsSmart(startDate, endDate, dryRun = true, progressCallback) {
+    let conn;
+    const summary = {
+        totalCarParks: 0,
+        totalVRMs: 0,
+        totalDetections: 0,
+        eventsCreated: 0,
+        doubleEntries: 0,
+        orphanExits: 0,
+        incompleteEvents: 0,
+        anomalies: [],
+        events: [],
+        carParkStats: {}
+    };
+    const startTime = Date.now();
+    try {
+        logger.info(`[SMART EVENT GEN] Starting smart event generation (dryRun=${dryRun}) for range ${startDate} to ${endDate}`);
+        conn = await pool.getConnection();
+        const carParks = await conn.query('SELECT * FROM carparks');
+        summary.totalCarParks = carParks.length;
+        const cameraMap = await getCameraMap();
+        for (let cpIdx = 0; cpIdx < carParks.length; cpIdx++) {
+            const carPark = carParks[cpIdx];
+            logger.info(`[SMART EVENT GEN] Processing car park ${carPark.siteId} (${carPark.name}) [${cpIdx+1}/${carParks.length}]`);
+            // 1. Get all unprocessed detections for this car park
+            const query = `
+                SELECT d.*, c.direction as cameraDir
+                FROM anpr_detections d
+                JOIN cameras c ON d.cameraID = c.name
+                WHERE d.timestamp BETWEEN ? AND ?
+                  AND d.processed = FALSE
+                  AND d.VRM IS NOT NULL
+                  AND d.VRM != ''
+                  AND UPPER(d.VRM) != 'UNKNOWN'
+                  AND d.direction IS NOT NULL
+                  AND d.direction != ''
+                  AND LOWER(d.direction) != 'unknown'
+                  AND c.carParkId = ?
+                ORDER BY d.VRM, d.timestamp ASC
+            `;
+            logger.info(`[SMART EVENT GEN] Executing query for car park ${carPark.siteId}: ${query} with params: [${startDate}, ${endDate}, ${carPark.siteId}]`);
+            const detections = await conn.query(query, [startDate, endDate, carPark.siteId]);
+            summary.totalDetections += detections.length;
+            logger.info(`[SMART EVENT GEN] Found ${detections.length} unprocessed detections in range for car park ${carPark.siteId}`);
+            // 2. Group by VRM
+            const detectionsByVRM = {};
+            for (const det of detections) {
+                const vrm = det.VRM.trim().toUpperCase();
+                if (!detectionsByVRM[vrm]) detectionsByVRM[vrm] = [];
+                detectionsByVRM[vrm].push(det);
+            }
+            const vrmList = Object.entries(detectionsByVRM);
+            summary.totalVRMs += vrmList.length;
+            logger.info(`[SMART EVENT GEN] Processing ${vrmList.length} unique VRMs for car park ${carPark.siteId}`);
+            summary.carParkStats[carPark.siteId] = { name: carPark.name, vrms: vrmList.length, detections: detections.length, eventsCreated: 0 };
+            // 3. Process each VRM
+            for (let vIdx = 0; vIdx < vrmList.length; vIdx++) {
+                const [vrm, dets] = vrmList[vIdx];
+                if (vIdx % 100 === 0) {
+                    logger.info(`[SMART EVENT GEN] Car park ${carPark.siteId}: Processing VRM ${vIdx+1}/${vrmList.length}`);
+                }
+                let state = 'awaiting_entry';
+                let currentEntry = null;
+                for (let i = 0; i < dets.length; i++) {
+                    const det = dets[i];
+                    // Flexible direction mapping
+                    let mappedDirection = 'unknown';
+                    const camera = cameraMap[det.cameraID];
+                    const rawDir = det.direction?.trim().toLowerCase();
+                    if (camera) {
+                        if (camera.entryDirection && rawDir === camera.entryDirection.trim().toLowerCase()) {
+                            mappedDirection = 'entry';
+                        } else if (camera.exitDirection && rawDir === camera.exitDirection.trim().toLowerCase()) {
+                            mappedDirection = 'exit';
+                        }
+                    }
+                    // Fallback to legacy mapping if not set
+                    if (mappedDirection === 'unknown') {
+                        const legacyMap = {
+                            'towards': 'entry',
+                            'away': 'exit',
+                            'in': 'entry',
+                            'out': 'exit',
+                            'entry': 'entry',
+                            'exit': 'exit'
+                        };
+                        mappedDirection = legacyMap[rawDir] || 'unknown';
+                    }
+                    const isEntry = mappedDirection === 'entry';
+                    const isExit = mappedDirection === 'exit';
+                    if (state === 'awaiting_entry') {
+                        if (isEntry) {
+                            currentEntry = det;
+                            state = 'awaiting_exit';
+                        } else if (isExit) {
+                            // Orphan exit
+                            summary.orphanExits++;
+                            summary.anomalies.push({ type: 'orphan_exit', detection: det });
+                        }
+                    } else if (state === 'awaiting_exit') {
+                        if (isExit) {
+                            // Pair with current entry
+                            summary.eventsCreated++;
+                            summary.carParkStats[carPark.siteId].eventsCreated++;
+                            summary.events.push({
+                                VRM: vrm,
+                                entry: currentEntry,
+                                exit: det,
+                                carParkId: carPark.siteId,
+                                durationMinutes: (det.timestamp && currentEntry.timestamp)
+                                    ? Math.round((new Date(det.timestamp) - new Date(currentEntry.timestamp)) / 60000)
+                                    : null
+                            });
+                            if (!dryRun) {
+                                const durationMinutes = (det.timestamp && currentEntry.timestamp)
+                                    ? Math.round((new Date(det.timestamp) - new Date(currentEntry.timestamp)) / 60000)
+                                    : null;
+                                await conn.query(`INSERT INTO parking_events (siteId, VRM, entryTime, exitTime, durationMinutes, entryDetectionId, exitDetectionId, entryCameraId, exitCameraId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,[
+                                    currentEntry.siteId || currentEntry.siteID || currentEntry.site_id || carPark.siteId,
+                                    vrm,
+                                    currentEntry.timestamp,
+                                    det.timestamp,
+                                    durationMinutes,
+                                    currentEntry.id,
+                                    det.id,
+                                    currentEntry.cameraID,
+                                    det.cameraID
+                                ]);
+                            }
+                            currentEntry = null;
+                            state = 'awaiting_entry';
+                        } else if (isEntry) {
+                            // Double entry
+                            summary.doubleEntries++;
+                            summary.anomalies.push({ type: 'double_entry', detection: currentEntry });
+                            // Start new entry
+                            currentEntry = det;
+                        }
+                    }
+                }
+                // If we end with an open entry
+                if (state === 'awaiting_exit' && currentEntry) {
+                    summary.incompleteEvents++;
+                    summary.anomalies.push({ type: 'incomplete_event', detection: currentEntry });
+                }
+                if (progressCallback) progressCallback(summary.eventsCreated);
+            }
+        }
+        const endTime = Date.now();
+        logger.info(`[SMART EVENT GEN] Completed smart event generation in ${(endTime - startTime)/1000}s. Events created: ${summary.eventsCreated}, Orphan exits: ${summary.orphanExits}, Double entries: ${summary.doubleEntries}, Incomplete events: ${summary.incompleteEvents}`);
+        return summary;
+    } catch (err) {
+        logger.error('[SMART EVENT GEN] Error:', err);
+        summary.error = err.message;
+        return summary;
+    } finally {
+        if (conn) conn.release();
+    }
+}
+
+module.exports = {
+  generateParkingEvents,
+  generateParkingEventsSmart
+}; 

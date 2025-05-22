@@ -1,36 +1,68 @@
-<div class="container-fluid py-4">
-    <!-- Event Summary Card -->
+<div class="container-fluid py-4 bg-light min-vh-100">
+    <!-- Event Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body d-flex flex-wrap align-items-center justify-content-between">
+            <div class="card shadow border-0 rounded-4 bg-white p-4 mb-2">
+                <div class="d-flex flex-wrap align-items-center justify-content-between">
                     <div>
-                        <h4 class="fw-bold mb-1">Event for <span class="text-primary"><%= event.VRM %></span></h4>
+                        <h1 class="display-3 fw-bold text-primary mb-2" style="letter-spacing:2px;"><i class="bi bi-car-front me-2"></i><%= event.VRM %></h1>
                         <div class="mb-2">
-                            <span class="badge bg-secondary me-2">Car Park: <%= event.carparkName %> (<%= event.siteId %>)</span>
-                            <span class="badge bg-info me-2">Entry: <%= new Date(event.entryTime).toLocaleString() %></span>
-                            <span class="badge bg-info">Exit: <%= (event.exitTime && !event.incomplete) ? new Date(event.exitTime).toLocaleString() : 'Still Parked' %></span>
+                            <span class="badge bg-secondary me-2 fs-6">Car Park: <%= event.carparkName %> (<%= event.siteId %>)</span>
                         </div>
                         <div class="mb-2">
-                            <span class="badge bg-dark me-2">Duration: <%= event.durationMinutes !== null ? Number(event.durationMinutes).toFixed(1) + ' min' : '-' %></span>
-                            <span class="badge bg-warning me-2">Through Traffic: <%= event.throughTraffic ? 'Yes' : 'No' %></span>
+                            <span class="badge bg-info me-2 fs-6"><i class="bi bi-box-arrow-in-right"></i> Entry: <%= event.entryTime ? new Date(event.entryTime).toLocaleString() : '-' %></span>
+                            <span class="badge bg-info fs-6"><i class="bi bi-box-arrow-left"></i> Exit: <%= event.eventExitTime ? new Date(event.eventExitTime).toLocaleString() : 'Still Parked' %></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-dark me-2 fs-6">
+                                <i class="bi bi-hourglass-split"></i> Duration:
+                                <% if (event.durationMinutes !== null && event.durationMinutes !== undefined) { %>
+                                    <% const minutes = Number(event.durationMinutes); %>
+                                    <% if (minutes >= 60) { %>
+                                        <%= Math.floor(minutes / 60) %>h <%= Math.round(minutes % 60) %>m
+                                    <% } else { %>
+                                        <%= Math.round(minutes) %>m
+                                    <% } %>
+                                <% } else if (event.entryTime && event.eventExitTime) { %>
+                                    <% const duration = (new Date(event.eventExitTime) - new Date(event.entryTime)) / 60000; %>
+                                    <% if (duration >= 60) { %>
+                                        <%= Math.floor(duration / 60) %>h <%= Math.round(duration % 60) %>m
+                                    <% } else { %>
+                                        <%= Math.round(duration) %>m
+                                    <% } %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </span>
+                            <span class="badge bg-warning me-2 fs-6"><i class="bi bi-arrow-repeat"></i> Through Traffic: <%= event.throughTraffic ? 'Yes' : 'No' %></span>
                             <% if (event.status === 'whitelisted') { %>
-                                <span class="badge bg-success"><i class="bi bi-shield-check"></i> Whitelisted</span>
-                            <% } else if (event.status === 'paid') { %>
-                                <span class="badge bg-primary"><i class="bi bi-currency-pound"></i> Paid</span>
-                            <% } else if (event.status === 'overstay') { %>
-                                <span class="badge bg-warning"><i class="bi bi-clock-history"></i> Overstay</span>
-                            <% } else if (event.status === 'unpaid') { %>
-                                <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
+                                <span class="badge bg-success fs-6"><i class="bi bi-shield-check"></i> On Whitelist</span>
                             <% } else { %>
-                                <span class="badge bg-secondary">-</span>
+                                <span class="badge bg-danger fs-6"><i class="bi bi-shield-x"></i> Not on Whitelist</span>
+                            <% } %>
+                            <% if (event.carParkType === 'private') { %>
+                                <% if (event.status === 'whitelisted') { %>
+                                    <span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Authorized</span>
+                                <% } else { %>
+                                    <span class="badge bg-danger fs-6"><i class="bi bi-x-circle"></i> Unauthorized</span>
+                                <% } %>
+                            <% } else { %>
+                                <% if (event.status === 'paid') { %>
+                                    <span class="badge bg-primary fs-6"><i class="bi bi-currency-pound"></i> Paid</span>
+                                <% } else if (event.status === 'overstay') { %>
+                                    <span class="badge bg-warning fs-6"><i class="bi bi-clock-history"></i> Overstay</span>
+                                <% } else if (event.status === 'unpaid') { %>
+                                    <span class="badge bg-danger fs-6"><i class="bi bi-exclamation-circle"></i> Unpaid</span>
+                                <% } else { %>
+                                    <span class="badge bg-secondary fs-6">-</span>
+                                <% } %>
                             <% } %>
                         </div>
                     </div>
-                    <div>
-                        <a href="/events" class="btn btn-outline-secondary btn-sm mb-2"><i class="fas fa-arrow-left"></i> Back to Events</a>
-                        <button class="btn btn-danger mb-2" onclick="deleteAndReprocessEvent('<%= event.id %>')">Delete & Reprocess Event</button>
-                        <button class="btn btn-outline-info mb-2" id="recheckStatusBtn">
+                    <div class="text-end">
+                        <a href="/events" class="btn btn-outline-secondary btn-lg mb-2 me-2"><i class="bi bi-arrow-left"></i> Back to Events</a>
+                        <button class="btn btn-danger btn-lg mb-2 me-2" onclick="deleteAndReprocessEvent('<%= event.id %>')"><i class="bi bi-trash"></i> Delete & Reprocess</button>
+                        <button class="btn btn-outline-info btn-lg mb-2" id="recheckStatusBtn">
                             <span id="recheckSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                             <i class="bi bi-arrow-repeat"></i> Re-check Status
                         </button>
@@ -41,11 +73,32 @@
         </div>
     </div>
 
-    <!-- Entry & Exit Detection Details Side by Side -->
+    <!-- Timeline Section -->
     <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center rounded-top-4">
+                    <strong><i class="bi bi-clock-history me-2"></i>Detections Timeline</strong>
+                    <div>
+                        <button id="timelinePrev" class="btn btn-outline-secondary btn-sm me-2" title="Previous"><i class="bi bi-chevron-left"></i></button>
+                        <button id="timelineNext" class="btn btn-outline-secondary btn-sm" title="Next"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="card-body bg-white rounded-bottom-4">
+                    <div id="timelineLoading" class="text-center my-4" style="display:none;">
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    </div>
+                    <div id="detectionsTimeline" class="d-flex flex-row align-items-end overflow-auto" style="gap: 32px; min-height: 120px; padding: 16px 0;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entry & Exit Detection Details -->
+    <div class="row mb-4 g-4">
         <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header bg-light"><strong>Entry Detection</strong></div>
+            <div class="card h-100 shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light rounded-top-4"><strong><i class="bi bi-box-arrow-in-right"></i> Entry Detection</strong></div>
                 <div class="card-body">
                     <table class="table table-sm mb-2">
                         <tr><th>Camera</th><td><%= event.entryCameraName %></td></tr>
@@ -58,16 +111,16 @@
                     <div class="d-flex gap-3 mb-2">
                         <div>
                             <h6 class="text-muted mb-2">Image 1</h6>
-                            <img src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image 1" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
+                            <img src="/image/<%= event.entryDetectionId %>/1" alt="Entry Image 1" class="img-thumbnail shadow-sm rounded-3" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
                         </div>
                         <div>
                             <h6 class="text-muted mb-2">Image 2</h6>
-                            <img src="/image/<%= event.entryDetectionId %>/2" alt="Entry Image 2" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
+                            <img src="/image/<%= event.entryDetectionId %>/2" alt="Entry Image 2" class="img-thumbnail shadow-sm rounded-3" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.entryDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
                         </div>
                     </div>
                     <div class="mb-2">
-                        <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', true)">Flag as Invalid</button>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', false)">Unflag</button>
+                        <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', true)"><i class="bi bi-flag"></i> Flag as Invalid</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.entryDetectionId %>', 'ignore', false)"><i class="bi bi-flag-fill"></i> Unflag</button>
                     </div>
                     <% if (entryFlags && entryFlags.length > 0) { %>
                         <div class="mb-2">
@@ -83,10 +136,10 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header bg-light"><strong>Exit Detection</strong></div>
+            <div class="card h-100 shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light rounded-top-4"><strong><i class="bi bi-box-arrow-left"></i> Exit Detection</strong></div>
                 <div class="card-body">
-                    <% if (event.exitTime) { %>
+                    <% if (event.eventExitTime) { %>
                         <table class="table table-sm mb-2">
                             <tr><th>Camera</th><td><%= event.exitCameraName %></td></tr>
                             <tr><th>Direction</th><td><%= event.exitDirection || '-' %></td></tr>
@@ -98,16 +151,16 @@
                         <div class="d-flex gap-3 mb-2">
                             <div>
                                 <h6 class="text-muted mb-2">Image 1</h6>
-                                <img src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image 1" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
+                                <img src="/image/<%= event.exitDetectionId %>/1" alt="Exit Image 1" class="img-thumbnail shadow-sm rounded-3" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 1)" onerror="this.src='/images/placeholder.jpg'">
                             </div>
                             <div>
                                 <h6 class="text-muted mb-2">Image 2</h6>
-                                <img src="/image/<%= event.exitDetectionId %>/2" alt="Exit Image 2" class="img-thumbnail" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
+                                <img src="/image/<%= event.exitDetectionId %>/2" alt="Exit Image 2" class="img-thumbnail shadow-sm rounded-3" style="width: 200px; height: 150px; object-fit: cover; cursor: pointer;" onclick="viewImage('<%= event.exitDetectionId %>', 2)" onerror="this.src='/images/placeholder.jpg'">
                             </div>
                         </div>
                         <div class="mb-2">
-                            <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', true)">Flag as Invalid</button>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', false)">Unflag</button>
+                            <button class="btn btn-outline-danger btn-sm me-2" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', true)"><i class="bi bi-flag"></i> Flag as Invalid</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="flagDetection('<%= event.exitDetectionId %>', 'ignore', false)"><i class="bi bi-flag-fill"></i> Unflag</button>
                         </div>
                         <% if (exitFlags && exitFlags.length > 0) { %>
                             <div class="mb-2">
@@ -127,140 +180,56 @@
         </div>
     </div>
 
-    <!-- Regenerate Events for this VRM Section -->
-    <div class="card my-4">
-        <div class="card-header bg-info text-white">
-            <h6 class="mb-0">Regenerate Events for this VRM</h6>
-        </div>
-        <div class="card-body">
-            <form id="regenerateVrmForm" class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">VRM</label>
-                    <input type="text" class="form-control" id="regenVrm" value="<%= event.VRM %>" readonly>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Car Park</label>
-                    <input type="text" class="form-control" id="regenSiteId" value="<%= event.siteId %>" readonly>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Start Date/Time</label>
-                    <input type="datetime-local" class="form-control" id="regenStart" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">End Date/Time</label>
-                    <input type="datetime-local" class="form-control" id="regenEnd" required>
-                </div>
-                <div class="col-12 mt-2">
-                    <button type="submit" class="btn btn-info">Regenerate Events for VRM</button>
-                    <span id="regenVrmResult" class="ms-3"></span>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- All Detections for this VRM at this Car Park -->
+    <!-- All Detections Section -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-light"><strong>All Detections for <%= event.VRM %> at <%= event.carparkName %></strong></div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>Camera</th>
-                                    <th>Direction</th>
-                                    <th>Confidence</th>
-                                    <th>Tag</th>
-                                    <th>Tag Confidence</th>
-                                    <th>Country</th>
-                                    <th>Images</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% relatedDetections.forEach(det => { %>
-                                    <tr class="detection-row" data-detection-id="<%= det.id %>" style="cursor: pointer;">
-                                        <td><%= new Date(det.timestamp).toLocaleString() %></td>
-                                        <td><%= det.cameraID %></td>
-                                        <td><%= det.direction %></td>
-                                        <td><%= det.confidence %></td>
-                                        <td><%= det.tag || '-' %></td>
-                                        <td><%= det.tagConfidence ? det.tagConfidence + '%' : '-' %></td>
-                                        <td><%= det.country || '-' %></td>
-                                        <td>
-                                            <div class="d-flex gap-2">
-                                                <img src="/image/<%= det.id %>/1" 
-                                                     alt="Image 1" 
-                                                     class="img-thumbnail" 
-                                                     style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                     onclick="viewImage('<%= det.id %>', 1); event.stopPropagation();"
-                                                     onerror="this.src='/images/placeholder.jpg'">
-                                                <img src="/image/<%= det.id %>/2" 
-                                                     alt="Image 2" 
-                                                     class="img-thumbnail" 
-                                                     style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                                     onclick="viewImage('<%= det.id %>', 2); event.stopPropagation();"
-                                                     onerror="this.src='/images/placeholder.jpg'">
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-danger me-1" onclick="flagDetection('<%= det.id %>', 'ignore', true); event.stopPropagation();">Flag as Invalid</button>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="flagDetection('<%= det.id %>', 'ignore', false); event.stopPropagation();">Unflag</button>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center rounded-top-4">
+                    <strong><i class="bi bi-list-ul me-2"></i>All Detections for <%= event.VRM %> at <%= event.carparkName %></strong>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="groupByDay()"><i class="bi bi-calendar-day"></i> Group by Day</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="groupByHour()"><i class="bi bi-clock"></i> Group by Hour</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="showAll()"><i class="bi bi-list"></i> Show All</button>
+                    </div>
+                </div>
+                <div class="card-body bg-white rounded-bottom-4">
+                    <div id="allDetectionsLoading" class="text-center my-4">
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    </div>
+                    <div id="allDetectionsTableContainer"></div>
+                    <div class="text-center mt-3">
+                        <button id="allDetectionsShowMore" class="btn btn-outline-secondary btn-sm" style="display:none;">Show More</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Other Events for this VRM at this Car Park -->
+    <!-- Other Events Section -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-light"><strong>Other Events for <%= event.VRM %> at <%= event.carparkName %></strong></div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Entry Time</th>
-                                    <th>Exit Time</th>
-                                    <th>Duration</th>
-                                    <th>Through Traffic</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% relatedEvents.forEach(ev => { %>
-                                    <tr>
-                                        <td><%= new Date(ev.entryTime).toLocaleString() %></td>
-                                        <td><%= ev.exitTime ? new Date(ev.exitTime).toLocaleString() : 'Still Parked' %></td>
-                                        <td><%= ev.durationMinutes !== null ? Number(ev.durationMinutes).toFixed(1) + ' minutes' : '-' %></td>
-                                        <td><%= ev.throughTraffic ? 'Yes' : 'No' %></td>
-                                        <td><a href="/events/<%= ev.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
-                                    </tr>
-                                <% }); %>
-                            </tbody>
-                        </table>
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light rounded-top-4"><strong><i class="bi bi-link-45deg me-2"></i>Other Events for <%= event.VRM %> at <%= event.carparkName %></strong></div>
+                <div class="card-body bg-white rounded-bottom-4">
+                    <div id="relatedEventsLoading" class="text-center my-4">
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    </div>
+                    <div id="relatedEventsTableContainer"></div>
+                    <div class="text-center mt-3">
+                        <button id="relatedEventsShowMore" class="btn btn-outline-secondary btn-sm" style="display:none;">Show More</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- PCNs (if any) -->
+    <!-- PCNs Section (if any) -->
     <% if (pcns && pcns.length > 0) { %>
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-light"><strong>Parking Charge Notices</strong></div>
-                <div class="card-body">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-light rounded-top-4"><strong><i class="bi bi-exclamation-triangle me-2"></i>Parking Charge Notices</strong></div>
+                <div class="card-body bg-white rounded-bottom-4">
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
@@ -400,6 +369,11 @@
 <% let minDateStr = '', maxDateStr = ''; if (relatedDetections && relatedDetections.length > 0) { minDateStr = relatedDetections[0].timestamp.toISOString ? relatedDetections[0].timestamp.toISOString() : relatedDetections[0].timestamp; maxDateStr = relatedDetections[relatedDetections.length-1].timestamp.toISOString ? relatedDetections[relatedDetections.length-1].timestamp.toISOString() : relatedDetections[relatedDetections.length-1].timestamp; } %>
 <script>
 let currentDetectionId = null;
+let timelinePage = 1;
+const timelineLimit = 20;
+let timelineTotalPages = 1;
+let timelineNodes = [];
+let timelineFocusedIdx = -1;
 
 // Add click handler to detection rows
 document.addEventListener('DOMContentLoaded', function() {
@@ -580,4 +554,555 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-</script> 
+
+function groupByDay() {
+    const rows = document.querySelectorAll('.detection-row');
+    const dayHeaders = document.querySelectorAll('.day-header');
+    
+    // Show all rows first
+    rows.forEach(row => row.style.display = '');
+    dayHeaders.forEach(header => header.style.display = '');
+}
+
+function groupByHour() {
+    const rows = document.querySelectorAll('.detection-row');
+    const dayHeaders = document.querySelectorAll('.day-header');
+    
+    // Hide all rows first
+    rows.forEach(row => row.style.display = 'none');
+    dayHeaders.forEach(header => header.style.display = 'none');
+    
+    // Show only rows from the last 24 hours
+    const now = new Date();
+    const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+    
+    rows.forEach(row => {
+        const timestamp = new Date(row.dataset.timestamp);
+        if (timestamp >= oneDayAgo) {
+            row.style.display = '';
+        }
+    });
+}
+
+function showAll() {
+    const rows = document.querySelectorAll('.detection-row');
+    const dayHeaders = document.querySelectorAll('.day-header');
+    
+    // Show all rows
+    rows.forEach(row => row.style.display = '');
+    dayHeaders.forEach(header => header.style.display = '');
+}
+
+function setAsEntry(detectionId, fromTimeline) {
+    fetch(`/api/events/<%= event.id %>/update-detection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detectionId, type: 'entry' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Entry detection updated!', 'success');
+            loadDetectionsTimeline(timelinePage);
+        } else if (data.error === 'Detection is used in another event') {
+            if (confirm('This detection is used in another event. Would you like to remove it from that event and use it here instead?')) {
+                fetch(`/api/events/<%= event.id %>/update-detection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ detectionId, type: 'entry', force: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Entry detection updated!', 'success');
+                        loadDetectionsTimeline(timelinePage);
+                    } else {
+                        showToast(data.error || 'Error updating event', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showToast('Error updating event', 'danger');
+                });
+            }
+        } else {
+            showToast(data.error || 'Error updating event', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating event', 'danger');
+    });
+}
+
+function setAsExit(detectionId, fromTimeline) {
+    fetch(`/api/events/<%= event.id %>/update-detection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detectionId, type: 'exit' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Exit detection updated!', 'success');
+            loadDetectionsTimeline(timelinePage);
+        } else if (data.error === 'Detection is used in another event') {
+            if (confirm('This detection is used in another event. Would you like to remove it from that event and use it here instead?')) {
+                fetch(`/api/events/<%= event.id %>/update-detection`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ detectionId, type: 'exit', force: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Exit detection updated!', 'success');
+                        loadDetectionsTimeline(timelinePage);
+                    } else {
+                        showToast(data.error || 'Error updating event', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showToast('Error updating event', 'danger');
+                });
+            }
+        } else {
+            showToast(data.error || 'Error updating event', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating event', 'danger');
+    });
+}
+
+function loadDetectionsTimeline(page = 1) {
+    console.log('[DEBUG] Loading timeline page:', page);
+    document.getElementById('timelineLoading').style.display = '';
+    document.getElementById('detectionsTimeline').innerHTML = '';
+    
+    const url = `/api/events/<%= event.id %>/detections-timeline?page=${page}&limit=${timelineLimit}`;
+    console.log('[DEBUG] Fetching timeline from:', url);
+    
+    fetch(url)
+        .then(res => {
+            console.log('[DEBUG] Timeline response status:', res.status);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log('[DEBUG] Timeline data received:', {
+                page: data.page,
+                totalPages: data.totalPages,
+                total: data.total,
+                detectionsCount: data.detections.length,
+                windowStart: data.windowStart,
+                windowEnd: data.windowEnd,
+                entryDetectionId: data.entryDetectionId,
+                exitDetectionId: data.exitDetectionId
+            });
+            
+            timelinePage = data.page;
+            timelineTotalPages = data.totalPages;
+            renderDetectionsTimeline(data.detections, data.entryDetectionId, data.exitDetectionId);
+            document.getElementById('timelineLoading').style.display = 'none';
+        })
+        .catch(err => {
+            console.error('[ERROR] Timeline fetch error:', err);
+            document.getElementById('timelineLoading').style.display = 'none';
+            document.getElementById('detectionsTimeline').innerHTML = `<div class="text-danger">Failed to load timeline: ${err.message}</div>`;
+        });
+}
+
+function renderDetectionsTimeline(detections, entryId, exitId) {
+    const container = document.getElementById('detectionsTimeline');
+    if (!container) return;
+    container.innerHTML = '';
+    timelineNodes = [];
+    timelineFocusedIdx = -1;
+    if (!detections.length) {
+        container.innerHTML = '<div class="text-muted">No detections in this timespan.</div>';
+        return;
+    }
+    detections.forEach((det, idx) => {
+        const dateObj = new Date(det.timestamp);
+        const node = document.createElement('div');
+        node.className = 'timeline-node text-center';
+        if (det.usedInOtherEvents > 0) node.classList.add('timeline-used-in-other');
+        node.style.cursor = 'pointer';
+        node.style.minWidth = '80px';
+        node.style.maxWidth = '120px';
+        node.style.flex = '0 0 auto';
+        node.style.position = 'relative';
+        node.setAttribute('tabindex', '0');
+        node.setAttribute('role', 'button');
+        node.setAttribute('aria-label', `Detection at ${dateObj.toLocaleString()} on camera ${det.cameraID}`);
+        node.title = `${dateObj.toLocaleString()}\nCamera: ${det.cameraID}${det.usedInOtherEvents > 0 ? '\nUsed in another event' : ''}`;
+        if (det.id === entryId) node.classList.add('timeline-entry');
+        if (det.id === exitId) node.classList.add('timeline-exit');
+        node.innerHTML = `
+            <div class='timeline-dot mb-1'></div>
+            <div class='fw-bold small'>${dateObj.toLocaleTimeString()}</div>
+            <div class='text-muted small'>${det.cameraID}</div>
+            <div class='small'>${det.direction || '-'}</div>
+        `;
+        container.appendChild(node);
+        timelineNodes.push(node);
+    });
+}
+
+function forceAssignDetection(detectionId, type, event) {
+    event.stopPropagation();
+    if (confirm('This detection is already used in another event. Assigning it here will remove it from the other event, and delete the other event if it becomes empty. Continue?')) {
+        fetch(`/api/events/<%= event.id %>/update-detection`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ detectionId, type, force: true })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Detection assigned and other event updated/deleted.', 'success');
+                loadDetectionsTimeline(timelinePage);
+            } else {
+                showToast(data.error || 'Error updating event', 'danger');
+            }
+        });
+    }
+}
+
+document.getElementById('timelinePrev').onclick = function() {
+    if (timelinePage > 1) loadDetectionsTimeline(timelinePage - 1);
+};
+document.getElementById('timelineNext').onclick = function() {
+    if (timelinePage < timelineTotalPages) loadDetectionsTimeline(timelinePage + 1);
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDetectionsTimeline(1);
+    // Keyboard navigation for timeline
+    document.getElementById('detectionsTimeline').addEventListener('keydown', function(e) {
+        if (!timelineNodes.length) return;
+        if (e.key === 'ArrowRight') {
+            if (timelineFocusedIdx < timelineNodes.length - 1) {
+                timelineFocusedIdx++;
+                timelineNodes[timelineFocusedIdx].focus();
+            }
+            e.preventDefault();
+        } else if (e.key === 'ArrowLeft') {
+            if (timelineFocusedIdx > 0) {
+                timelineFocusedIdx--;
+                timelineNodes[timelineFocusedIdx].focus();
+            }
+            e.preventDefault();
+        }
+    });
+    // Set initial focus
+    document.getElementById('detectionsTimeline').addEventListener('focusin', function(e) {
+        timelineFocusedIdx = timelineNodes.indexOf(e.target);
+    });
+});
+
+function showDetectionModal(det, entryId, exitId) {
+    let modal = document.getElementById('timelineDetectionModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'timelineDetectionModal';
+        modal.tabIndex = -1;
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Detection Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <img id="timelineModalImg1" class="img-thumbnail mb-2" style="width:100%;max-width:320px;object-fit:cover;" onerror="this.src='/images/placeholder.jpg'">
+                                <img id="timelineModalImg2" class="img-thumbnail" style="width:100%;max-width:320px;object-fit:cover;" onerror="this.src='/images/placeholder.jpg'">
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm">
+                                    <tr><th>Timestamp</th><td id="timelineModalTime"></td></tr>
+                                    <tr><th>Camera</th><td id="timelineModalCamera"></td></tr>
+                                    <tr><th>Direction</th><td id="timelineModalDirection"></td></tr>
+                                    <tr><th>Confidence</th><td id="timelineModalConfidence"></td></tr>
+                                    <tr><th>Tag</th><td id="timelineModalTag"></td></tr>
+                                    <tr><th>Country</th><td id="timelineModalCountry"></td></tr>
+                                </table>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button class="btn btn-outline-success" id="timelineSetEntry"><i class="bi bi-arrow-right"></i> Set as Entry</button>
+                                    <button class="btn btn-outline-danger" id="timelineSetExit"><i class="bi bi-arrow-left"></i> Set as Exit</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('timelineModalImg1').src = `/image/${det.id}/1`;
+    document.getElementById('timelineModalImg2').src = `/image/${det.id}/2`;
+    document.getElementById('timelineModalTime').textContent = new Date(det.timestamp).toLocaleString();
+    document.getElementById('timelineModalCamera').textContent = det.cameraID;
+    document.getElementById('timelineModalDirection').textContent = det.direction || '-';
+    document.getElementById('timelineModalConfidence').textContent = det.confidence || '-';
+    document.getElementById('timelineModalTag').textContent = det.tag || '-';
+    document.getElementById('timelineModalCountry').textContent = det.country || '-';
+    document.getElementById('timelineSetEntry').onclick = function() {
+        setAsEntry(det.id, true);
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+    };
+    document.getElementById('timelineSetExit').onclick = function() {
+        setAsExit(det.id, true);
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+    };
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
+function showToast(message, type) {
+    // Implement the showToast function
+    console.log(`${type.charAt(0).toUpperCase() + type.slice(1)}: ${message}`);
+}
+
+// --- AJAX Pagination for All Detections ---
+let allDetectionsPage = 1;
+let allDetectionsTotalPages = 1;
+function loadAllDetections(page = 1) {
+    document.getElementById('allDetectionsLoading').style.display = '';
+    document.getElementById('allDetectionsTableContainer').innerHTML = '';
+    fetch(`/api/events/<%= event.id %>/all-detections?page=${page}`)
+        .then(res => res.json())
+        .then(data => {
+            allDetectionsPage = data.page;
+            allDetectionsTotalPages = data.totalPages;
+            renderAllDetectionsTable(data.detections);
+            document.getElementById('allDetectionsLoading').style.display = 'none';
+            document.getElementById('allDetectionsShowMore').style.display = (allDetectionsPage < allDetectionsTotalPages) ? '' : 'none';
+        })
+        .catch(err => {
+            document.getElementById('allDetectionsLoading').style.display = 'none';
+            document.getElementById('allDetectionsTableContainer').innerHTML = `<div class='text-danger'>Failed to load detections: ${err.message}</div>`;
+        });
+}
+function renderAllDetectionsTable(detections) {
+    if (!detections.length) {
+        document.getElementById('allDetectionsTableContainer').innerHTML = '<div class="text-muted">No detections found.</div>';
+        return;
+    }
+    let html = `<div class='table-responsive'><table class='table table-sm table-hover'><thead><tr><th>Timestamp</th><th>Camera</th><th>Direction</th><th>Confidence</th><th>Tag</th><th>Tag Confidence</th><th>Country</th><th>Images</th><th>Actions</th></tr></thead><tbody>`;
+    let lastDay = '';
+    detections.forEach(det => {
+        const dateObj = new Date(det.timestamp);
+        const dayStr = dateObj.toLocaleDateString();
+        if (dayStr !== lastDay) {
+            html += `<tr class='day-header'><td colspan='9'><strong>${dayStr}</strong></td></tr>`;
+            lastDay = dayStr;
+        }
+        html += `<tr class='detection-row' data-timestamp='${dateObj.toISOString()}'>
+            <td>${dateObj.toLocaleString()}</td>
+            <td>${det.cameraID}</td>
+            <td>${det.direction || '-'}</td>
+            <td>${det.confidence || '-'}</td>
+            <td>${det.tag || '-'}</td>
+            <td>${det.tagConfidence ? det.tagConfidence + '%' : '-'}</td>
+            <td>${det.country || '-'}</td>
+            <td>
+                <div class='d-flex gap-2'>
+                    <img src='/image/${det.id}/1' class='img-thumbnail' style='width:50px;height:50px;object-fit:cover;cursor:pointer;' onclick='viewImage("${det.id}",1);event.stopPropagation();' onerror='this.src="/images/placeholder.jpg"'>
+                    <img src='/image/${det.id}/2' class='img-thumbnail' style='width:50px;height:50px;object-fit:cover;cursor:pointer;' onclick='viewImage("${det.id}",2);event.stopPropagation();' onerror='this.src="/images/placeholder.jpg"'>
+                </div>
+            </td>
+            <td>
+                <div class='btn-group'>
+                    <button class='btn btn-sm btn-outline-primary' onclick='setAsEntry(${det.id});event.stopPropagation();' ${det.usedInOtherEvents > 0 ? 'disabled' : ''} title='${det.usedInOtherEvents > 0 ? 'Detection is used in another event' : 'Set as Entry'}'><i class='bi bi-arrow-right'></i> Entry</button>
+                    <button class='btn btn-sm btn-outline-primary' onclick='setAsExit(${det.id});event.stopPropagation();' ${det.usedInOtherEvents > 0 ? 'disabled' : ''} title='${det.usedInOtherEvents > 0 ? 'Detection is used in another event' : 'Set as Exit'}'><i class='bi bi-arrow-left'></i> Exit</button>
+                    <button class='btn btn-sm btn-outline-danger' onclick='flagDetection(${det.id},"ignore",true);event.stopPropagation();'><i class='bi bi-flag'></i></button>
+                    <button class='btn btn-sm btn-outline-secondary' onclick='flagDetection(${det.id},"ignore",false);event.stopPropagation();'><i class='bi bi-flag-fill'></i></button>
+                </div>
+                ${det.usedInOtherEvents > 0
+                  ? `<span class="badge-used" tabindex="0" data-bs-toggle="tooltip" title="This detection is already used in ${det.usedInOtherEvents} other event(s)${det.usedInEventIds ? ` (Event ID(s): ${det.usedInEventIds})` : ''}. Click 'Entry' or 'Exit' to force assign.">Used</span>`
+                  : ''
+                }
+            </td>
+        </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('allDetectionsTableContainer').innerHTML = html;
+    // Call grouping after render
+    groupByDay();
+}
+document.getElementById('allDetectionsShowMore').onclick = function() {
+    if (allDetectionsPage < allDetectionsTotalPages) {
+        loadAllDetections(allDetectionsPage + 1);
+    }
+};
+// --- AJAX Pagination for Related Events ---
+let relatedEventsPage = 1;
+let relatedEventsTotalPages = 1;
+function loadRelatedEvents(page = 1) {
+    document.getElementById('relatedEventsLoading').style.display = '';
+    document.getElementById('relatedEventsTableContainer').innerHTML = '';
+    fetch(`/api/events/<%= event.id %>/related-events?page=${page}`)
+        .then(res => res.json())
+        .then(data => {
+            relatedEventsPage = data.page;
+            relatedEventsTotalPages = data.totalPages;
+            renderRelatedEventsTable(data.events);
+            document.getElementById('relatedEventsLoading').style.display = 'none';
+            document.getElementById('relatedEventsShowMore').style.display = (relatedEventsPage < relatedEventsTotalPages) ? '' : 'none';
+        })
+        .catch(err => {
+            document.getElementById('relatedEventsLoading').style.display = 'none';
+            document.getElementById('relatedEventsTableContainer').innerHTML = `<div class='text-danger'>Failed to load related events: ${err.message}</div>`;
+        });
+}
+function renderRelatedEventsTable(events) {
+    if (!events.length) {
+        document.getElementById('relatedEventsTableContainer').innerHTML = '<div class="text-muted">No related events found.</div>';
+        return;
+    }
+    let html = `<div class='table-responsive'><table class='table table-sm'><thead><tr><th>Entry Time</th><th>Exit Time</th><th>Duration</th><th>Through Traffic</th><th>Actions</th></tr></thead><tbody>`;
+    events.forEach(ev => {
+        let durationStr = '-';
+        if (ev.durationMinutes !== null && ev.durationMinutes !== undefined) {
+            const minutes = Number(ev.durationMinutes);
+            if (minutes >= 60) {
+                const hours = Math.floor(minutes / 60);
+                const remainingMinutes = Math.round(minutes % 60);
+                durationStr = `${hours}h ${remainingMinutes}m`;
+            } else {
+                durationStr = `${Math.round(minutes)}m`;
+            }
+        } else if (ev.entryTime && ev.exitTime) {
+            const duration = (new Date(ev.exitTime) - new Date(ev.entryTime)) / 60000;
+            if (!isNaN(duration)) {
+                if (duration >= 60) {
+                    const hours = Math.floor(duration / 60);
+                    const remainingMinutes = Math.round(duration % 60);
+                    durationStr = `${hours}h ${remainingMinutes}m`;
+                } else {
+                    durationStr = `${Math.round(duration)}m`;
+                }
+            }
+        }
+        html += `<tr>
+            <td>${ev.entryTime ? new Date(ev.entryTime).toLocaleString() : '-'}</td>
+            <td>${ev.exitTime ? new Date(ev.exitTime).toLocaleString() : 'Still Parked'}</td>
+            <td>${durationStr}</td>
+            <td>${ev.throughTraffic ? 'Yes' : 'No'}</td>
+            <td><a href="/events/${ev.id}" class="btn btn-sm btn-outline-primary">View</a></td>
+        </tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('relatedEventsTableContainer').innerHTML = html;
+}
+document.getElementById('relatedEventsShowMore').onclick = function() {
+    if (relatedEventsPage < relatedEventsTotalPages) {
+        loadRelatedEvents(relatedEventsPage + 1);
+    }
+};
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllDetections(1);
+    loadRelatedEvents(1);
+});
+</script>
+
+<style>
+.timeline-node {
+    border-radius: 8px;
+    padding: 8px 4px 4px 4px;
+    background: #f8f9fa;
+    transition: box-shadow 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.timeline-node.timeline-entry {
+    border: 2px solid #198754;
+    background: #e9fbe9;
+}
+.timeline-node.timeline-exit {
+    border: 2px solid #dc3545;
+    background: #fbe9e9;
+}
+.timeline-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    margin: 0 auto 4px auto;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #adb5bd;
+}
+.timeline-entry .timeline-dot {
+    background: #198754 !important;
+    box-shadow: 0 0 0 2px #198754;
+}
+.timeline-exit .timeline-dot {
+    background: #dc3545 !important;
+    box-shadow: 0 0 0 2px #dc3545;
+}
+.timeline-used-in-other {
+    border: 2px solid #ffc107 !important;
+    background: #fffbe6 !important;
+}
+.detections-table {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 32px;
+    overflow: hidden;
+}
+.detections-table th, .detections-table td {
+    vertical-align: middle;
+    padding: 10px 12px;
+}
+.detections-table tr:hover {
+    background: #f7faff;
+}
+.detections-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f3f6fa;
+    z-index: 2;
+    font-weight: 600;
+    border-bottom: 2px solid #e0e6ed;
+}
+.detection-img-thumb {
+    width: 56px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e0e6ed;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    margin-right: 4px;
+    background: #f8f9fa;
+}
+.badge-used {
+    background: #ffe066;
+    color: #856404;
+    border-radius: 12px;
+    font-size: 0.92em;
+    padding: 2px 10px;
+    margin-left: 6px;
+    cursor: pointer;
+    display: inline-block;
+    vertical-align: middle;
+}
+.actions-btns {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.section-title {
+    font-size: 1.18em;
+    font-weight: 600;
+    margin: 24px 0 10px 0;
+    letter-spacing: 0.01em;
+}
+.empty-state {
+    color: #888;
+    font-style: italic;
+    padding: 18px 0;
+    text-align: center;
+}
+</style> 
